@@ -8,19 +8,21 @@ AI agents working on a codebase only see the code — not the live database. Whe
 
 ```bash
 # Zero install — runs directly with npx
-npx sql-mcp --db mysql://user:password@localhost:3306/mydb
+npx @salmanulfaris/sql-mcp --db mysql://user:password@localhost:3306/mydb
 ```
 
 ## Integration
 
 ### Claude Desktop (`claude_desktop_config.json`)
 
+Location: `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS), `%APPDATA%\Claude\claude_desktop_config.json` (Windows)
+
 ```json
 {
   "mcpServers": {
     "sql-mcp": {
       "command": "npx",
-      "args": ["sql-mcp", "--db", "mysql://user:password@host:3306/mydb"]
+      "args": ["@salmanulfaris/sql-mcp", "--db", "mysql://user:password@host:3306/mydb"]
     }
   }
 }
@@ -29,13 +31,101 @@ npx sql-mcp --db mysql://user:password@localhost:3306/mydb
 ### Claude Code
 
 ```bash
-claude mcp add sql-mcp npx sql-mcp --db mysql://user:password@host:3306/mydb
+claude mcp add sql-mcp npx @salmanulfaris/sql-mcp --db mysql://user:password@host:3306/mydb
+```
+
+### Cursor (`~/.cursor/mcp.json`)
+
+Create or edit `~/.cursor/mcp.json` (global) or `.cursor/mcp.json` in your project:
+
+```json
+{
+  "mcpServers": {
+    "sql-mcp": {
+      "command": "npx",
+      "args": ["@salmanulfaris/sql-mcp", "--db", "mysql://user:password@host:3306/mydb"]
+    }
+  }
+}
+```
+
+After saving, open Cursor Settings → MCP and toggle the server on.
+
+### Antigravity (Google)
+
+In Antigravity, open the MCP settings panel and add a new server, or edit your MCP config file:
+
+```json
+{
+  "mcpServers": {
+    "sql-mcp": {
+      "command": "npx",
+      "args": ["@salmanulfaris/sql-mcp", "--db", "mysql://user:password@host:3306/mydb"],
+      "env": {
+        "DB_URL": "mysql://user:password@host:3306/mydb"
+      }
+    }
+  }
+}
+```
+
+### Codex (OpenAI) (`~/.codex/config.toml`)
+
+Codex uses TOML format. Add this to `~/.codex/config.toml`:
+
+```toml
+[mcp_servers.sql-mcp]
+command = "npx"
+args = ["@salmanulfaris/sql-mcp", "--db", "mysql://user:password@host:3306/mydb"]
+```
+
+To enable write operations, add flags to the `args` array:
+
+```toml
+[mcp_servers.sql-mcp]
+command = "npx"
+args = [
+  "@salmanulfaris/sql-mcp",
+  "--db", "mysql://user:password@host:3306/mydb",
+  "--allow-write"
+]
+```
+
+### Windsurf (`~/.codeium/windsurf/mcp_config.json`)
+
+```json
+{
+  "mcpServers": {
+    "sql-mcp": {
+      "command": "npx",
+      "args": ["@salmanulfaris/sql-mcp", "--db", "mysql://user:password@host:3306/mydb"]
+    }
+  }
+}
 ```
 
 ### Environment Variables (recommended for production)
 
+Avoid putting credentials in config files. Use env vars instead:
+
 ```bash
-DB_URL=mysql://user:password@host:3306/mydb npx sql-mcp
+DB_URL=mysql://user:password@host:3306/mydb npx @salmanulfaris/sql-mcp
+```
+
+In MCP config files, you can pass env vars via the `env` field:
+
+```json
+{
+  "mcpServers": {
+    "sql-mcp": {
+      "command": "npx",
+      "args": ["@salmanulfaris/sql-mcp"],
+      "env": {
+        "DB_URL": "mysql://user:password@host:3306/mydb"
+      }
+    }
+  }
+}
 ```
 
 ## Configuration
@@ -103,7 +193,7 @@ Contributions are welcome! Areas to contribute:
 ### Development
 
 ```bash
-git clone https://github.com/your-org/sql-mcp
+git clone https://github.com/salmanulfaris/sql-mcp
 cd sql-mcp
 npm install
 npm run dev        # watch mode
