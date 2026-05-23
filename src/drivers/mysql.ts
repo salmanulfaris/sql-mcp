@@ -10,8 +10,11 @@ import type {
   ForeignKeyInfo,
   QueryResult,
   ExecuteQueryOptions,
+  AnalyzeOptions,
+  AnalyzeResult,
 } from './base.js';
 import { isValidIdentifier } from '../permissions.js';
+import { formatTable } from '../format.js';
 
 export class MySQLDriver implements DatabaseDriver {
   readonly dialect: Dialect = 'mysql';
@@ -179,5 +182,121 @@ export class MySQLDriver implements DatabaseDriver {
         insertId: header.insertId > 0 ? header.insertId : undefined,
       };
     }
+  }
+
+  async analyzeQuery(sql: string, opts: AnalyzeOptions): Promise<AnalyzeResult> {
+    const stripped = sql.trim().replace(/;$/, '');
+    let explainSql: string;
+    let executed = false;
+
+    if (opts.execute) {
+      // Inject MAX_EXECUTION_TIME hint into the inner SELECT
+      const withHint = stripped.replace(
+        /^(SELECT)\s+/i,
+        `$1 /*+ MAX_EXECUTION_TIME(${opts.timeoutMs}) */ `,
+      );
+      explainSql = `EXPLAIN ANALYZE ${withHint}`;
+      executed = true;
+    } else {
+      explainSql = `EXPLAIN FORMAT=TRADITIONAL ${stripped}`;
+    }
+
+    try {
+      const [result] = await this.pool.query(explainSql);
+      const rows = result as RowDataPacket[];
+
+      if (executed) {
+        // EXPLAIN ANALYZE returns a single column "EXPLAIN" with tree text
+        const treeText = rows.map((r) => Object.values(r)[0]).join('\n');
+        return {
+          raw: treeText,
+          insights: this.mysqlInsightsFromTree(treeText),
+          executed: true,
+        };
+      }
+
+      const rawTable = formatTable(rows as Record<string, unknown>[]);
+      return {
+        raw: rawTable,
+        insights: this.mysqlInsightsFromTable(rows),
+        executed: false,
+      };
+    } catch (err) {
+      const code = (err as { code?: string }).code;
+      const message = err instanceof Error ? err.message : String(err);
+      // Timeout via MAX_EXECUTION_TIME hint
+      if (code === 'ER_QUERY_TIMEOUT' || /max_statement_time|execution_time/i.test(message)) {
+        return {
+          raw: '',
+          insights: [],
+          executed: true,
+          timedOut: true,
+        };
+      }
+      // Fall back to EXPLAIN if EXPLAIN ANALYZE unsupported (< 8.0.18)
+      if (executed && (code === 'ER_PARSE_ERROR' || /EXPLAIN ANALYZE/i.test(message))) {
+        const [result] = await this.pool.query(`EXPLAIN FORMAT=TRADITIONAL ${stripped}`);
+        const rows = result as RowDataPacket[];
+        const rawTable = formatTable(rows as Record<string, unknown>[]);
+        return {
+          raw: rawTable + '\n\n(Note: EXPLAIN ANALYZE requires MySQL 8.0.18+. Showed plan-only output.)',
+          insights: this.mysqlInsightsFromTable(rows),
+          executed: false,
+        };
+      }
+      throw err;
+    }
+  }
+
+  private mysqlInsightsFromTable(rows: RowDataPacket[]): string[] {
+    const insights: string[] = [];
+    for (const row of rows) {
+      const table = (row.table as string) || '?';
+      const type = (row.type as string) || '';
+      const key = row.key as string | null;
+      const extra = (row.Extra as string) || '';
+      const rowsExamined = Number(row.rows ?? 0);
+
+      if (type === 'ALL') {
+        insights.push(`⚠ Full table scan on \`${table}\` (examines ~${rowsExamined} rows)`);
+      } else if (type === 'index') {
+        insights.push(`↳ Full index scan on \`${table}\` — slow for large indexes`);
+      }
+      if (!key && type !== 'const' && type !== 'system' && type !== 'NULL') {
+        insights.push(`⚠ No index used on \`${table}\` (type=${type})`);
+      }
+      if (extra.includes('Using filesort')) {
+        insights.push(`⚠ Filesort on \`${table}\` — consider index on ORDER BY columns`);
+      }
+      if (extra.includes('Using temporary')) {
+        insights.push(`⚠ Temporary table used on \`${table}\` — usually GROUP BY/DISTINCT without index`);
+      }
+      if (rowsExamined > 10000 && ['ALL', 'index', 'range'].includes(type)) {
+        insights.push(`⚠ Scans ${rowsExamined} rows on \`${table}\` — review WHERE/JOIN conditions`);
+      }
+    }
+    return insights;
+  }
+
+  private mysqlInsightsFromTree(tree: string): string[] {
+    const insights: string[] = [];
+    if (/Table scan on /i.test(tree)) {
+      const matches = tree.match(/Table scan on (\w+)/gi) ?? [];
+      for (const m of matches) {
+        const name = m.replace(/^Table scan on /i, '');
+        insights.push(`⚠ Full table scan on \`${name}\``);
+      }
+    }
+    if (/Filesort/i.test(tree)) insights.push('⚠ Filesort detected in execution');
+    if (/Temporary table/i.test(tree)) insights.push('⚠ Temporary table used during execution');
+    const slowMatches = tree.match(/actual time=[\d.]+\.\.([\d.]+)/g) ?? [];
+    for (const m of slowMatches) {
+      const ms = Number(m.split('..')[1]);
+      if (ms > 1000) {
+        insights.push(`⚠ Step took ${ms.toFixed(1)}ms (slow)`);
+        break;
+      }
+    }
+    return insights;
   }
 }

@@ -9,6 +9,8 @@ import type {
   ForeignKeyInfo,
   QueryResult,
   ExecuteQueryOptions,
+  AnalyzeOptions,
+  AnalyzeResult,
 } from './base.js';
 import { isValidIdentifier } from '../permissions.js';
 
@@ -228,5 +230,68 @@ export class PostgresDriver implements DatabaseDriver {
     } else {
       return { affectedRows: result.rowCount ?? 0 };
     }
+  }
+
+  async analyzeQuery(sql: string, opts: AnalyzeOptions): Promise<AnalyzeResult> {
+    const stripped = sql.trim().replace(/;$/, '');
+
+    if (!opts.execute) {
+      const result = await this.pool.query(`EXPLAIN ${stripped}`);
+      const raw = result.rows.map((r) => r['QUERY PLAN']).join('\n');
+      return {
+        raw,
+        insights: this.postgresInsights(raw),
+        executed: false,
+      };
+    }
+
+    const client = await this.pool.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query(`SET LOCAL statement_timeout = ${opts.timeoutMs}`);
+      const result = await client.query(`EXPLAIN (ANALYZE, BUFFERS, FORMAT TEXT) ${stripped}`);
+      await client.query('COMMIT');
+      const raw = result.rows.map((r) => r['QUERY PLAN']).join('\n');
+      return {
+        raw,
+        insights: this.postgresInsights(raw),
+        executed: true,
+      };
+    } catch (err) {
+      try { await client.query('ROLLBACK'); } catch {}
+      const code = (err as { code?: string }).code;
+      if (code === '57014') {
+        return {
+          raw: '',
+          insights: [],
+          executed: true,
+          timedOut: true,
+        };
+      }
+      throw err;
+    } finally {
+      client.release();
+    }
+  }
+
+  private postgresInsights(plan: string): string[] {
+    const insights: string[] = [];
+    const lines = plan.split('\n');
+    for (const line of lines) {
+      const seqMatch = line.match(/Seq Scan on (\w+)/);
+      if (seqMatch) insights.push(`⚠ Sequential scan on \`${seqMatch[1]}\``);
+      if (/Sort Method: external merge/i.test(line)) {
+        insights.push('⚠ Sort spilled to disk — consider increasing work_mem');
+      }
+      const filterMatch = line.match(/Rows Removed by Filter:\s*(\d+)/);
+      if (filterMatch && Number(filterMatch[1]) > 1000) {
+        insights.push(`⚠ Filter discarded ${filterMatch[1]} rows — index on the filter column may help`);
+      }
+      const heapMatch = line.match(/Heap Fetches:\s*(\d+)/);
+      if (heapMatch && Number(heapMatch[1]) > 0 && /Index Only Scan/i.test(plan)) {
+        insights.push(`↳ Index-only scan but VACUUM needed (heap fetches: ${heapMatch[1]})`);
+      }
+    }
+    return insights;
   }
 }

@@ -9,6 +9,8 @@ import type {
   ForeignKeyInfo,
   QueryResult,
   ExecuteQueryOptions,
+  AnalyzeOptions,
+  AnalyzeResult,
 } from './base.js';
 import { isValidIdentifier } from '../permissions.js';
 
@@ -156,5 +158,76 @@ export class SqliteDriver implements DatabaseDriver {
         insertId: result.lastInsertRowid !== 0n && result.lastInsertRowid !== 0 ? Number(result.lastInsertRowid) : undefined,
       };
     }
+  }
+
+  async analyzeQuery(sql: string, opts: AnalyzeOptions): Promise<AnalyzeResult> {
+    const stripped = sql.trim().replace(/;$/, '');
+    const timer = setTimeout(() => {
+      try { (this.db as unknown as { interrupt?: () => void }).interrupt?.(); } catch {}
+    }, opts.timeoutMs);
+
+    try {
+      const rows = this.db.prepare(`EXPLAIN QUERY PLAN ${stripped}`).all() as {
+        id: number;
+        parent: number;
+        notused: number;
+        detail: string;
+      }[];
+
+      const lines = this.buildSqliteTree(rows);
+      const raw = lines.join('\n');
+      return {
+        raw,
+        insights: this.sqliteInsights(rows),
+        executed: false,
+      };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      if (/interrupt/i.test(message)) {
+        return { raw: '', insights: [], executed: false, timedOut: true };
+      }
+      throw err;
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  private buildSqliteTree(rows: { id: number; parent: number; detail: string }[]): string[] {
+    const childrenByParent = new Map<number, typeof rows>();
+    for (const r of rows) {
+      if (!childrenByParent.has(r.parent)) childrenByParent.set(r.parent, []);
+      childrenByParent.get(r.parent)!.push(r);
+    }
+    const lines: string[] = [];
+    const walk = (parent: number, depth: number) => {
+      const kids = childrenByParent.get(parent) ?? [];
+      for (const k of kids) {
+        lines.push('  '.repeat(depth) + '└─ ' + k.detail);
+        walk(k.id, depth + 1);
+      }
+    };
+    walk(0, 0);
+    return lines.length > 0 ? lines : rows.map((r) => r.detail);
+  }
+
+  private sqliteInsights(rows: { detail: string }[]): string[] {
+    const insights: string[] = [];
+    for (const r of rows) {
+      const d = r.detail;
+      const scanMatch = d.match(/^SCAN (\w+)/);
+      if (scanMatch) insights.push(`⚠ Full table scan on \`${scanMatch[1]}\``);
+      const searchMatch = d.match(/^SEARCH (\w+) USING INDEX (\S+)/);
+      if (searchMatch) insights.push(`✓ Index lookup on \`${searchMatch[1]}\` via \`${searchMatch[2]}\``);
+      if (/USE TEMP B-TREE FOR ORDER BY/i.test(d)) {
+        insights.push('⚠ ORDER BY uses temporary B-tree — consider index on the sort columns');
+      }
+      if (/USE TEMP B-TREE FOR DISTINCT/i.test(d)) {
+        insights.push('⚠ DISTINCT uses temporary B-tree — consider index on the distinct columns');
+      }
+      if (/USE TEMP B-TREE FOR GROUP BY/i.test(d)) {
+        insights.push('⚠ GROUP BY uses temporary B-tree');
+      }
+    }
+    return insights;
   }
 }

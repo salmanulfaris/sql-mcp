@@ -47,6 +47,18 @@ export interface ExecuteQueryOptions {
   maxRows: number;
 }
 
+export interface AnalyzeOptions {
+  execute: boolean;
+  timeoutMs: number;
+}
+
+export interface AnalyzeResult {
+  raw: string;
+  insights: string[];
+  executed: boolean;
+  timedOut?: boolean;
+}
+
 export interface DatabaseDriver {
   readonly dialect: Dialect;
   testConnection(): Promise<void>;
@@ -56,4 +68,5 @@ export interface DatabaseDriver {
   getSchema(): Promise<TableDescription[]>;
   getSampleData(name: string, limit: number, orderBy?: string): Promise<QueryResult>;
   executeQuery(sql: string, opts: ExecuteQueryOptions): Promise<QueryResult>;
+  analyzeQuery(sql: string, opts: AnalyzeOptions): Promise<AnalyzeResult>;
 }

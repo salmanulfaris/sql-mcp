@@ -7,6 +7,7 @@ import { registerDescribeTable } from './tools/describe-table.js';
 import { registerGetSchema } from './tools/get-schema.js';
 import { registerGetSampleData } from './tools/get-sample-data.js';
 import { registerQuery } from './tools/query.js';
+import { registerAnalyzeQuery } from './tools/analyze-query.js';
 import type { ServerConfig } from './types.js';
 
 function parseArgs(): ServerConfig {
@@ -90,7 +91,7 @@ async function main(): Promise<void> {
 
   const server = new McpServer({
     name: 'sql-mcp',
-    version: '0.2.0',
+    version: '0.3.0',
   });
 
   registerListTables(server, driver);
@@ -98,6 +99,7 @@ async function main(): Promise<void> {
   registerGetSchema(server, driver);
   registerGetSampleData(server, driver);
   registerQuery(server, driver, config.permissions);
+  registerAnalyzeQuery(server, driver);
 
   const transport = new StdioServerTransport();
   await server.connect(transport);

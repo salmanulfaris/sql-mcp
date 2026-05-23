@@ -174,6 +174,24 @@ CLI flags take precedence over environment variables.
 | `get_schema` | Full database schema dump | Read-only (default) |
 | `get_sample_data` | Sample N rows from a table | Read-only (default) |
 | `query` | Execute any SQL statement | Depends on statement type |
+| `analyze_query` | Show execution plan + detect performance issues (full scans, missing indexes, filesort, etc.) | Always safe (plan-only by default) |
+
+### `analyze_query` Usage
+
+Use this when investigating slow queries or bad indexing. By default it only shows the planner's EXPLAIN output (no execution). Set `execute=true` for real timing on `SELECT` queries — bounded by `timeout_ms` (default 5s) so it never hangs on huge tables.
+
+```js
+// Plan-only (safe, always cheap)
+analyze_query({ sql: "SELECT * FROM orders WHERE user_id = 123" })
+
+// Real timing on SELECT (capped at 5s)
+analyze_query({ sql: "SELECT COUNT(*) FROM orders", execute: true })
+
+// Increase timeout for a slow analytics query
+analyze_query({ sql: "SELECT ...", execute: true, timeout_ms: 30000 })
+```
+
+Output includes detected issues like `⚠ Full table scan on \`orders\`` or `⚠ Filesort — consider index on ORDER BY columns`.
 
 ## Security Model
 
