@@ -149,10 +149,10 @@ export class MySQLDriver implements DatabaseDriver {
     if (!isValidIdentifier(name)) {
       throw new Error(`Invalid table name '${name}'`);
     }
+    const safeLimit = Math.max(1, Math.min(100, Math.floor(limit)));
     const orderClause = orderBy ? `ORDER BY ${orderBy}` : '';
-    const [rows, fields] = await this.pool.execute<RowDataPacket[]>(
-      `SELECT * FROM \`${name}\` ${orderClause} LIMIT ?`,
-      [limit],
+    const [rows, fields] = await this.pool.query<RowDataPacket[]>(
+      `SELECT * FROM \`${name}\` ${orderClause} LIMIT ${safeLimit}`,
     );
     return {
       rows: rows as Record<string, unknown>[],
