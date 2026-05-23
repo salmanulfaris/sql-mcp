@@ -31,8 +31,16 @@ Location: `~/Library/Application Support/Claude/claude_desktop_config.json` (mac
 ### Claude Code
 
 ```bash
-claude mcp add sql-mcp npx @salmanulfaris/sql-mcp --db mysql://user:password@host:3306/mydb
+claude mcp add sql-mcp -- npx @salmanulfaris/sql-mcp --db mysql://user:password@host:3306/mydb
 ```
+
+Or with env var (recommended — keeps credentials out of process listings):
+
+```bash
+claude mcp add sql-mcp -e DB_URL=mysql://user:password@host:3306/mydb -- npx @salmanulfaris/sql-mcp
+```
+
+Note the `--` before `npx` — it tells `claude mcp add` to stop parsing flags so `--db` reaches our server.
 
 ### Cursor (`~/.cursor/mcp.json`)
 
