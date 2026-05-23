@@ -1,0 +1,53 @@
+{
+  "name": "@salmanulfaris/sql-mcp",
+  "version": "0.1.1",
+  "description": "MCP server that gives AI agents accurate MySQL schema and data access — no more schema guessing",
+  "type": "module",
+  "bin": {
+    "sql-mcp": "dist/index.js"
+  },
+  "main": "./dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "start": "node dist/index.js",
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "npm run build"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.0",
+    "mysql2": "^3.11.0",
+    "zod": "^3.23.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.5.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "files": [
+    "dist"
+  ],
+  "keywords": [
+    "mcp",
+    "mysql",
+    "sql",
+    "ai",
+    "agent",
+    "database",
+    "schema"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/salmanulfaris/sql-mcp.git"
+  },
+  "bugs": {
+    "url": "https://github.com/salmanulfaris/sql-mcp/issues"
+  },
+  "homepage": "https://github.com/salmanulfaris/sql-mcp#readme"
+}
