@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
-import { createConnectionPool, testConnection } from './connection.js';
+import { createDriver } from './drivers/index.js';
 import { registerListTables } from './tools/list-tables.js';
 import { registerDescribeTable } from './tools/describe-table.js';
 import { registerGetSchema } from './tools/get-schema.js';
@@ -22,31 +22,29 @@ function parseArgs(): ServerConfig {
 
   for (let i = 0; i < args.length; i++) {
     const arg = args[i];
-    if (arg === '--db' && args[i + 1]) {
-      dbUri = args[++i];
-    } else if (arg === '--ssl') {
-      ssl = true;
-    } else if (arg === '--allow-write') {
-      allowWrite = true;
-    } else if (arg === '--allow-delete') {
-      allowDelete = true;
-    } else if (arg === '--allow-ddl') {
-      allowDDL = true;
-    } else if (arg === '--allow-drop-database') {
-      allowDropDatabase = true;
-    }
+    if (arg === '--db' && args[i + 1]) dbUri = args[++i];
+    else if (arg === '--ssl') ssl = true;
+    else if (arg === '--allow-write') allowWrite = true;
+    else if (arg === '--allow-delete') allowDelete = true;
+    else if (arg === '--allow-ddl') allowDDL = true;
+    else if (arg === '--allow-drop-database') allowDropDatabase = true;
   }
 
   if (!dbUri) {
     process.stderr.write(
       [
-        'sql-mcp: MySQL connection URI is required.',
+        'sql-mcp: database connection URI is required.',
         '',
         'Usage:',
-        '  sql-mcp --db mysql://user:password@host:3306/database [options]',
+        '  sql-mcp --db <connection-uri> [options]',
+        '',
+        'Supported databases:',
+        '  MySQL:      mysql://user:password@host:3306/database',
+        '  PostgreSQL: postgres://user:password@host:5432/database',
+        '  SQLite:     sqlite:./path/to/database.db',
         '',
         'Options:',
-        '  --db <uri>              MySQL connection URI (or set DB_URL env var)',
+        '  --db <uri>              Connection URI (or set DB_URL env var)',
         '  --ssl                   Enable SSL/TLS (or set SSL=true)',
         '  --allow-write           Enable INSERT and UPDATE (or ALLOW_WRITE=true)',
         '  --allow-delete          Enable DELETE (or ALLOW_DELETE=true)',
@@ -66,35 +64,40 @@ function parseArgs(): ServerConfig {
 
 async function main(): Promise<void> {
   const config = parseArgs();
-  const pool = createConnectionPool(config.connection);
 
+  let driver;
   try {
-    await testConnection(pool);
-    process.stderr.write('sql-mcp: Connected to MySQL successfully.\n');
+    driver = createDriver(config.connection.uri, config.connection.ssl);
   } catch (err) {
     process.stderr.write(`sql-mcp: ${err instanceof Error ? err.message : String(err)}\n`);
     process.exit(1);
   }
 
-  process.on('SIGINT', async () => {
-    await pool.end();
+  try {
+    await driver.testConnection();
+    process.stderr.write(`sql-mcp: Connected to ${driver.dialect} successfully.\n`);
+  } catch (err) {
+    process.stderr.write(`sql-mcp: ${err instanceof Error ? err.message : String(err)}\n`);
+    process.exit(1);
+  }
+
+  const shutdown = async () => {
+    await driver.close();
     process.exit(0);
-  });
-  process.on('SIGTERM', async () => {
-    await pool.end();
-    process.exit(0);
-  });
+  };
+  process.on('SIGINT', shutdown);
+  process.on('SIGTERM', shutdown);
 
   const server = new McpServer({
     name: 'sql-mcp',
-    version: '0.1.0',
+    version: '0.2.0',
   });
 
-  registerListTables(server, pool);
-  registerDescribeTable(server, pool);
-  registerGetSchema(server, pool);
-  registerGetSampleData(server, pool);
-  registerQuery(server, pool, config.permissions);
+  registerListTables(server, driver);
+  registerDescribeTable(server, driver);
+  registerGetSchema(server, driver);
+  registerGetSampleData(server, driver);
+  registerQuery(server, driver, config.permissions);
 
   const transport = new StdioServerTransport();
   await server.connect(transport);

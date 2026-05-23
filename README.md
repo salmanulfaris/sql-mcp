@@ -1,14 +1,30 @@
 # sql-mcp
 
-> Give AI agents accurate MySQL schema and data access. No more schema guessing.
+> Give AI agents accurate SQL database schema and data access. No more schema guessing.
 
-AI agents working on a codebase only see the code — not the live database. When they need schema or data, they guess, leading to wrong column names, bad types, and missed foreign keys. `sql-mcp` connects any MCP-compatible AI agent directly to your MySQL database with **read-only by default** and explicit opt-in for write operations.
+AI agents working on a codebase only see the code — not the live database. When they need schema or data, they guess, leading to wrong column names, bad types, and missed foreign keys. `sql-mcp` connects any MCP-compatible AI agent directly to your **MySQL, PostgreSQL, or SQLite** database with **read-only by default** and explicit opt-in for write operations.
+
+## Supported Databases
+
+| Database | Connection URI |
+|---|---|
+| **MySQL** | `mysql://user:pass@host:3306/db` |
+| **PostgreSQL** | `postgres://user:pass@host:5432/db` (or `postgresql://`) |
+| **SQLite** | `sqlite:./path/to/file.db` (or `file:./path` or just `*.db`/`*.sqlite`) |
+
+The driver is auto-detected from the URI scheme.
 
 ## Quick Start
 
 ```bash
-# Zero install — runs directly with npx
-npx @salmanulfaris/sql-mcp --db mysql://user:password@localhost:3306/mydb
+# MySQL
+npx @salmanulfaris/sql-mcp --db 'mysql://user:password@localhost:3306/mydb'
+
+# PostgreSQL
+npx @salmanulfaris/sql-mcp --db 'postgres://user:password@localhost:5432/mydb'
+
+# SQLite
+npx @salmanulfaris/sql-mcp --db 'sqlite:./mydb.sqlite'
 ```
 
 ## Integration

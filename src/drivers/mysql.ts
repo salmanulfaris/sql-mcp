@@ -1,0 +1,183 @@
+import mysql from 'mysql2/promise';
+import type { Pool, RowDataPacket, ResultSetHeader } from 'mysql2/promise';
+import type {
+  DatabaseDriver,
+  Dialect,
+  TableInfo,
+  TableDescription,
+  ColumnInfo,
+  IndexInfo,
+  ForeignKeyInfo,
+  QueryResult,
+  ExecuteQueryOptions,
+} from './base.js';
+import { isValidIdentifier } from '../permissions.js';
+
+export class MySQLDriver implements DatabaseDriver {
+  readonly dialect: Dialect = 'mysql';
+  private pool: Pool;
+
+  constructor(uri: string, ssl: boolean) {
+    this.pool = mysql.createPool({
+      uri,
+      waitForConnections: true,
+      connectionLimit: 10,
+      queueLimit: 0,
+      enableKeepAlive: true,
+      keepAliveInitialDelay: 0,
+      ...(ssl ? { ssl: { rejectUnauthorized: true } } : {}),
+    });
+  }
+
+  async testConnection(): Promise<void> {
+    try {
+      await this.pool.query('SELECT 1');
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      throw new Error(`Failed to connect to MySQL: ${message}`);
+    }
+  }
+
+  async close(): Promise<void> {
+    await this.pool.end();
+  }
+
+  async listTables(): Promise<TableInfo[]> {
+    const [rows] = await this.pool.query<RowDataPacket[]>('SHOW FULL TABLES');
+    return rows.map((row) => {
+      const values = Object.values(row) as string[];
+      return {
+        name: values[0],
+        type: values[1] === 'VIEW' ? ('VIEW' as const) : ('TABLE' as const),
+      };
+    });
+  }
+
+  async describeTable(name: string): Promise<TableDescription> {
+    if (!isValidIdentifier(name)) {
+      throw new Error(`Invalid table name '${name}'`);
+    }
+
+    const [colRows, indexRows, fkRows] = await Promise.all([
+      this.pool.query<RowDataPacket[]>(`DESCRIBE \`${name}\``),
+      this.pool.query<RowDataPacket[]>(`SHOW INDEX FROM \`${name}\``),
+      this.pool.execute<RowDataPacket[]>(
+        `SELECT COLUMN_NAME, REFERENCED_TABLE_NAME, REFERENCED_COLUMN_NAME, CONSTRAINT_NAME
+         FROM information_schema.KEY_COLUMN_USAGE
+         WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND REFERENCED_TABLE_NAME IS NOT NULL
+         ORDER BY CONSTRAINT_NAME, ORDINAL_POSITION`,
+        [name],
+      ),
+    ]);
+
+    const columns: ColumnInfo[] = colRows[0].map((row) => ({
+      name: row.Field,
+      dataType: row.Type,
+      nullable: row.Null === 'YES',
+      defaultValue: row.Default,
+      isPrimaryKey: row.Key === 'PRI',
+      isUnique: row.Key === 'UNI',
+      extra: (row.Extra || '').toUpperCase(),
+    }));
+
+    const indexMap = new Map<string, { unique: boolean; columns: string[] }>();
+    for (const row of indexRows[0]) {
+      if (!indexMap.has(row.Key_name)) {
+        indexMap.set(row.Key_name, { unique: row.Non_unique === 0, columns: [] });
+      }
+      indexMap.get(row.Key_name)!.columns[row.Seq_in_index - 1] = row.Column_name;
+    }
+    const indexes: IndexInfo[] = Array.from(indexMap, ([name, info]) => ({
+      name,
+      unique: info.unique,
+      columns: info.columns,
+    }));
+
+    const foreignKeys: ForeignKeyInfo[] = fkRows[0].map((row) => ({
+      constraintName: row.CONSTRAINT_NAME,
+      column: row.COLUMN_NAME,
+      referencedTable: row.REFERENCED_TABLE_NAME,
+      referencedColumn: row.REFERENCED_COLUMN_NAME,
+    }));
+
+    return { name, columns, indexes, foreignKeys };
+  }
+
+  async getSchema(): Promise<TableDescription[]> {
+    const [colResult, fkResult] = await Promise.all([
+      this.pool.query<RowDataPacket[]>(
+        `SELECT TABLE_NAME, COLUMN_NAME, ORDINAL_POSITION, COLUMN_DEFAULT,
+                IS_NULLABLE, COLUMN_TYPE, COLUMN_KEY, EXTRA
+         FROM information_schema.COLUMNS
+         WHERE TABLE_SCHEMA = DATABASE()
+         ORDER BY TABLE_NAME, ORDINAL_POSITION`,
+      ),
+      this.pool.query<RowDataPacket[]>(
+        `SELECT TABLE_NAME, COLUMN_NAME, REFERENCED_TABLE_NAME, REFERENCED_COLUMN_NAME, CONSTRAINT_NAME
+         FROM information_schema.KEY_COLUMN_USAGE
+         WHERE TABLE_SCHEMA = DATABASE() AND REFERENCED_TABLE_NAME IS NOT NULL`,
+      ),
+    ]);
+
+    const tableMap = new Map<string, TableDescription>();
+    for (const row of colResult[0]) {
+      if (!tableMap.has(row.TABLE_NAME)) {
+        tableMap.set(row.TABLE_NAME, { name: row.TABLE_NAME, columns: [], indexes: [], foreignKeys: [] });
+      }
+      tableMap.get(row.TABLE_NAME)!.columns.push({
+        name: row.COLUMN_NAME,
+        dataType: row.COLUMN_TYPE,
+        nullable: row.IS_NULLABLE === 'YES',
+        defaultValue: row.COLUMN_DEFAULT,
+        isPrimaryKey: row.COLUMN_KEY === 'PRI',
+        isUnique: row.COLUMN_KEY === 'UNI',
+        extra: (row.EXTRA || '').toUpperCase(),
+      });
+    }
+    for (const row of fkResult[0]) {
+      tableMap.get(row.TABLE_NAME)?.foreignKeys.push({
+        constraintName: row.CONSTRAINT_NAME,
+        column: row.COLUMN_NAME,
+        referencedTable: row.REFERENCED_TABLE_NAME,
+        referencedColumn: row.REFERENCED_COLUMN_NAME,
+      });
+    }
+    return Array.from(tableMap.values());
+  }
+
+  async getSampleData(name: string, limit: number, orderBy?: string): Promise<QueryResult> {
+    if (!isValidIdentifier(name)) {
+      throw new Error(`Invalid table name '${name}'`);
+    }
+    const orderClause = orderBy ? `ORDER BY ${orderBy}` : '';
+    const [rows, fields] = await this.pool.execute<RowDataPacket[]>(
+      `SELECT * FROM \`${name}\` ${orderClause} LIMIT ?`,
+      [limit],
+    );
+    return {
+      rows: rows as Record<string, unknown>[],
+      columns: fields.map((f) => f.name),
+    };
+  }
+
+  async executeQuery(sql: string, opts: ExecuteQueryOptions): Promise<QueryResult> {
+    let finalSql = sql;
+    if (opts.isReadOnly && !/\bLIMIT\b/i.test(sql)) {
+      finalSql = sql.trimEnd().replace(/;$/, '') + ` LIMIT ${opts.maxRows}`;
+    }
+    const [result, fields] = await this.pool.query(finalSql);
+    if (opts.isReadOnly) {
+      const rows = result as RowDataPacket[];
+      return {
+        rows: rows as Record<string, unknown>[],
+        columns: Array.isArray(fields) ? fields.map((f) => f.name) : Object.keys(rows[0] ?? {}),
+      };
+    } else {
+      const header = result as ResultSetHeader;
+      return {
+        affectedRows: header.affectedRows,
+        insertId: header.insertId > 0 ? header.insertId : undefined,
+      };
+    }
+  }
+}

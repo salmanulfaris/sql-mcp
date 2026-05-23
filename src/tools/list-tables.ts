@@ -1,54 +1,34 @@
-import type { Pool, RowDataPacket } from 'mysql2/promise';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
+import type { DatabaseDriver } from '../drivers/base.js';
 
-export function registerListTables(server: McpServer, pool: Pool): void {
+export function registerListTables(server: McpServer, driver: DatabaseDriver): void {
   server.registerTool(
     'list_tables',
     {
-      description:
-        'List all tables and views in the connected MySQL database with their types.',
+      description: 'List all tables and views in the connected database with their types.',
       inputSchema: z.object({}),
     },
     async () => {
       try {
-        const [rows] = await pool.query<RowDataPacket[]>('SHOW FULL TABLES');
+        const items = await driver.listTables();
+        const tables = items.filter((i) => i.type === 'TABLE').map((i) => i.name);
+        const views = items.filter((i) => i.type === 'VIEW').map((i) => i.name);
 
-        const tables: string[] = [];
-        const views: string[] = [];
-
-        for (const row of rows) {
-          const values = Object.values(row) as string[];
-          const name = values[0];
-          const type = values[1];
-          if (type === 'VIEW') {
-            views.push(name);
-          } else {
-            tables.push(name);
-          }
-        }
-
-        const totalCount = tables.length + views.length;
-        const parts: string[] = [];
-
-        parts.push(
-          `${totalCount} object(s) found (${tables.length} table(s), ${views.length} view(s)):\n`,
-        );
-
+        const parts: string[] = [
+          `${items.length} object(s) found (${tables.length} table(s), ${views.length} view(s)) [${driver.dialect}]:`,
+          '',
+        ];
         if (tables.length > 0) {
           parts.push('Tables:');
           for (const t of tables) parts.push(`  - ${t}`);
         }
-
         if (views.length > 0) {
           if (tables.length > 0) parts.push('');
           parts.push('Views:');
           for (const v of views) parts.push(`  - ${v}`);
         }
-
-        if (totalCount === 0) {
-          parts.push('No tables or views found in this database.');
-        }
+        if (items.length === 0) parts.push('No tables or views found.');
 
         return { content: [{ type: 'text' as const, text: parts.join('\n') }] };
       } catch (err) {

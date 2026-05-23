@@ -1,10 +1,9 @@
-import type { Pool, RowDataPacket } from 'mysql2/promise';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
-import { isValidIdentifier } from '../permissions.js';
+import type { DatabaseDriver } from '../drivers/base.js';
 import { formatTable } from '../format.js';
 
-export function registerGetSampleData(server: McpServer, pool: Pool): void {
+export function registerGetSampleData(server: McpServer, driver: DatabaseDriver): void {
   server.registerTool(
     'get_sample_data',
     {
@@ -28,59 +27,27 @@ export function registerGetSampleData(server: McpServer, pool: Pool): void {
     },
     async ({ table_name, limit, order_by }) => {
       try {
-        if (!isValidIdentifier(table_name)) {
+        if (order_by && !/^[a-zA-Z0-9_,.()\s]+$/.test(order_by)) {
           return {
             content: [
               {
                 type: 'text' as const,
-                text: `Invalid table name '${table_name}'. Table names may only contain letters, numbers, and underscores.`,
+                text: 'Invalid order_by expression. Use only column names, commas, and ASC/DESC.',
               },
             ],
             isError: true,
           };
         }
 
-        // Sanitize order_by: allow only safe characters
-        let orderClause = '';
-        if (order_by) {
-          if (!/^[a-zA-Z0-9_,.()\s]+$/.test(order_by)) {
-            return {
-              content: [
-                {
-                  type: 'text' as const,
-                  text: 'Invalid order_by expression. Use only column names, commas, and ASC/DESC.',
-                },
-              ],
-              isError: true,
-            };
-          }
-          orderClause = `ORDER BY ${order_by}`;
-        }
-
-        const sql = `SELECT * FROM \`${table_name}\` ${orderClause} LIMIT ?`;
-        const [rows] = await pool.execute<RowDataPacket[]>(sql, [limit]);
-
+        const result = await driver.getSampleData(table_name, limit, order_by);
+        const rows = result.rows ?? [];
         if (rows.length === 0) {
-          return {
-            content: [{ type: 'text' as const, text: `Table '${table_name}' is empty.` }],
-          };
+          return { content: [{ type: 'text' as const, text: `Table '${table_name}' is empty.` }] };
         }
 
-        const text = `Sample data from '${table_name}' (${rows.length} row(s)):\n\n${formatTable(rows)}`;
+        const text = `Sample data from '${table_name}' [${driver.dialect}] (${rows.length} row(s)):\n\n${formatTable(rows, result.columns)}`;
         return { content: [{ type: 'text' as const, text }] };
       } catch (err) {
-        const mysqlErr = err as { code?: string; message: string };
-        if (mysqlErr.code === 'ER_NO_SUCH_TABLE') {
-          return {
-            content: [
-              {
-                type: 'text' as const,
-                text: `Table '${table_name}' does not exist in this database.`,
-              },
-            ],
-            isError: true,
-          };
-        }
         const message = err instanceof Error ? err.message : String(err);
         return { content: [{ type: 'text' as const, text: `Error: ${message}` }], isError: true };
       }
