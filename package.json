@@ -1,6 +1,6 @@
 {
   "name": "@salmanulfaris/sql-mcp",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "MCP server that gives AI agents accurate MySQL schema and data access — no more schema guessing",
   "type": "module",
   "bin": {
