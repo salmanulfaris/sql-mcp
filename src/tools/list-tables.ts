@@ -6,7 +6,8 @@ export function registerListTables(server: McpServer, driver: DatabaseDriver): v
   server.registerTool(
     'list_tables',
     {
-      description: 'List all tables and views in the connected database with their types.',
+      description:
+        'List all tables and views in the connected database with their types. Start here — call this first to understand what tables exist, then use describe_table on only the tables relevant to your task. Prefer this over get_schema for any database with many tables.',
       inputSchema: z.object({}),
     },
     async () => {

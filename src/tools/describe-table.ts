@@ -7,7 +7,7 @@ export function registerDescribeTable(server: McpServer, driver: DatabaseDriver)
     'describe_table',
     {
       description:
-        'Get full schema details for a table: columns with types, nullable, defaults, indexes, and foreign keys.',
+        'Get full schema details for a single table: columns with types, nullable, defaults, indexes, and foreign keys. Use this after list_tables to inspect only the tables relevant to the task — more efficient than get_schema for large databases.',
       inputSchema: z.object({
         table_name: z.string().min(1).describe('Name of the table to describe'),
       }),

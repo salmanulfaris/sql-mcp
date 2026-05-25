@@ -9,7 +9,7 @@ export function registerGetSchema(server: McpServer, driver: DatabaseDriver): vo
     'get_schema',
     {
       description:
-        'Get the full schema of the connected database: all tables, columns, types, keys, and foreign key relationships.',
+        'Get the full schema of the connected database: all tables, columns, types, keys, and foreign key relationships. WARNING: avoid this on databases with many tables — it will flood the context window and degrade reasoning. Prefer this workflow instead: call list_tables first to see what exists, then describe_table for only the tables relevant to the task.',
       inputSchema: z.object({}),
     },
     async () => {

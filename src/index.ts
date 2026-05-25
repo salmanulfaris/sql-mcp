@@ -91,7 +91,7 @@ async function main(): Promise<void> {
 
   const server = new McpServer({
     name: 'sql-mcp',
-    version: '0.3.0',
+    version: '0.3.1',
   });
 
   registerListTables(server, driver);
