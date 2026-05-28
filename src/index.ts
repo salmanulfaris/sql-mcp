@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+import { readFileSync } from 'fs';
+import { join } from 'path';
 import { createDriver } from './drivers/index.js';
 import { registerListTables } from './tools/list-tables.js';
 import { registerDescribeTable } from './tools/describe-table.js';
@@ -10,16 +12,36 @@ import { registerQuery } from './tools/query.js';
 import { registerAnalyzeQuery } from './tools/analyze-query.js';
 import type { ServerConfig } from './types.js';
 
+function loadProjectConfig(): Record<string, string> {
+  try {
+    const content = readFileSync(join(process.cwd(), '.sql-mcp'), 'utf8');
+    const result: Record<string, string> = {};
+    for (const line of content.split('\n')) {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith('#')) continue;
+      const eq = trimmed.indexOf('=');
+      if (eq === -1) continue;
+      result[trimmed.slice(0, eq).trim()] = trimmed.slice(eq + 1).trim();
+    }
+    process.stderr.write(`sql-mcp: Loaded project config from .sql-mcp\n`);
+    return result;
+  } catch {
+    return {};
+  }
+}
+
 function parseArgs(): ServerConfig {
   const args = process.argv.slice(2);
   const env = process.env;
+  const project = loadProjectConfig();
 
-  let dbUri = env['DB_URL'] ?? '';
-  let ssl = env['SSL'] === 'true';
-  let allowWrite = env['ALLOW_WRITE'] === 'true';
-  let allowDelete = env['ALLOW_DELETE'] === 'true';
-  let allowDDL = env['ALLOW_DDL'] === 'true';
-  let allowDropDatabase = env['ALLOW_DROP_DATABASE'] === 'true';
+  // Priority: CLI flags > .sql-mcp > environment variables
+  let dbUri = project['DB_URL'] ?? env['DB_URL'] ?? '';
+  let ssl = (project['SSL'] ?? env['SSL']) === 'true';
+  let allowWrite = (project['ALLOW_WRITE'] ?? env['ALLOW_WRITE']) === 'true';
+  let allowDelete = (project['ALLOW_DELETE'] ?? env['ALLOW_DELETE']) === 'true';
+  let allowDDL = (project['ALLOW_DDL'] ?? env['ALLOW_DDL']) === 'true';
+  let allowDropDatabase = (project['ALLOW_DROP_DATABASE'] ?? env['ALLOW_DROP_DATABASE']) === 'true';
 
   for (let i = 0; i < args.length; i++) {
     const arg = args[i];
@@ -91,7 +113,7 @@ async function main(): Promise<void> {
 
   const server = new McpServer({
     name: 'sql-mcp',
-    version: '0.3.1',
+    version: '0.3.2',
   });
 
   registerListTables(server, driver);

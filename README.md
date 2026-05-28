@@ -2,7 +2,7 @@
 
 > Give AI agents accurate SQL database schema and data access. No more schema guessing.
 
-AI agents working on a codebase only see the code — not the live database. When they need schema or data, they guess, leading to wrong column names, bad types, and missed foreign keys. `sql-mcp` connects any MCP-compatible AI agent directly to your **MySQL, PostgreSQL, or SQLite** database with **read-only by default** and explicit opt-in for write operations.
+MCP clients like Claude Desktop, Cursor, and Windsurf don't have terminal access — so without an MCP server, they're limited to what's in your code files. `sql-mcp` gives them live schema and data access directly from your **MySQL, PostgreSQL, or SQLite** database, with **read-only by default** and explicit opt-in for write operations.
 
 ## Supported Databases
 
@@ -58,6 +58,8 @@ claude mcp add sql-mcp -e DB_URL=mysql://user:password@host:3306/mydb -- npx @sa
 
 Note the `--` before `npx` — it tells `claude mcp add` to stop parsing flags so `--db` reaches our server.
 
+See [Claude Code MCP docs](https://code.claude.com/docs/en/mcp) for more on project-level vs global MCP setup.
+
 ### Cursor (`~/.cursor/mcp.json`)
 
 Create or edit `~/.cursor/mcp.json` (global) or `.cursor/mcp.json` in your project:
@@ -74,6 +76,8 @@ Create or edit `~/.cursor/mcp.json` (global) or `.cursor/mcp.json` in your proje
 ```
 
 After saving, open Cursor Settings → MCP and toggle the server on.
+
+See [Cursor MCP docs](https://cursor.com/docs/mcp) for more on global vs project-level config.
 
 ### Antigravity (Google)
 
@@ -128,7 +132,54 @@ args = [
 }
 ```
 
-### Environment Variables (recommended for production)
+## Per-Project Database Config
+
+If you work across multiple projects with different databases, configure the connection per project instead of globally.
+
+Create a `.sql-mcp` file in your project root:
+
+```ini
+DB_URL=mysql://user:password@localhost:3306/my_project_db
+```
+
+sql-mcp reads this file on startup and uses it over the global `--db` flag or `DB_URL` env var. Switch projects and it automatically connects to the right database.
+
+**Priority order:**
+
+```
+.sql-mcp file  >  --db CLI flag  >  DB_URL env var
+```
+
+You can also set permission flags in the file:
+
+```ini
+DB_URL=mysql://user:password@localhost:3306/my_project_db
+ALLOW_WRITE=true
+ALLOW_DELETE=true
+```
+
+> **Important:** Add `.sql-mcp` to your `.gitignore` — it contains credentials and should never be committed.
+
+```bash
+echo ".sql-mcp" >> .gitignore
+```
+
+The global MCP config (in Claude Desktop, Cursor, etc.) stays as-is. The `.sql-mcp` file just overrides the database for that specific project without touching any client config.
+
+## Configuration
+
+| Flag | Env Var | `.sql-mcp` key | Default | Description |
+|---|---|---|---|---|
+| `--db <uri>` | `DB_URL` | `DB_URL` | required | Connection URI |
+| `--ssl` | `SSL=true` | `SSL=true` | false | Enable SSL/TLS |
+| `--allow-write` | `ALLOW_WRITE=true` | `ALLOW_WRITE=true` | false | Enable INSERT and UPDATE |
+| `--allow-delete` | `ALLOW_DELETE=true` | `ALLOW_DELETE=true` | false | Enable DELETE |
+| `--allow-ddl` | `ALLOW_DDL=true` | `ALLOW_DDL=true` | false | Enable ALTER, CREATE, DROP, TRUNCATE |
+| `--allow-drop-database` | `ALLOW_DROP_DATABASE=true` | `ALLOW_DROP_DATABASE=true` | false | Enable DROP DATABASE |
+
+Priority: CLI flags > `.sql-mcp` file > environment variables.
+
+### Environment Variables
 
 Avoid putting credentials in config files. Use env vars instead:
 
@@ -151,19 +202,6 @@ In MCP config files, you can pass env vars via the `env` field:
   }
 }
 ```
-
-## Configuration
-
-| Flag | Env Var | Default | Description |
-|---|---|---|---|
-| `--db <uri>` | `DB_URL` | required | MySQL connection URI |
-| `--ssl` | `SSL=true` | false | Enable SSL/TLS for connection |
-| `--allow-write` | `ALLOW_WRITE=true` | false | Enable INSERT and UPDATE |
-| `--allow-delete` | `ALLOW_DELETE=true` | false | Enable DELETE |
-| `--allow-ddl` | `ALLOW_DDL=true` | false | Enable ALTER, CREATE, DROP, TRUNCATE |
-| `--allow-drop-database` | `ALLOW_DROP_DATABASE=true` | false | Enable DROP DATABASE |
-
-CLI flags take precedence over environment variables.
 
 ## Available Tools
 
@@ -207,21 +245,20 @@ Output includes detected issues like `⚠ Full table scan on \`orders\`` or `⚠
 ## Architecture
 
 ```
-CLI args / env vars
+.sql-mcp file / CLI args / env vars
        │
        ▼
   ServerConfig (permissions + connection)
        │
-       ├── createConnectionPool (mysql2)
+       ├── createDriver (mysql2 / pg / better-sqlite3)
        │
        └── McpServer
              ├── list_tables
              ├── describe_table
              ├── get_schema
              ├── get_sample_data
-             └── query ──► permissions.ts (classifier + gate)
-                              │
-                              └── pool.query / pool.execute
+             ├── query ──► permissions.ts (classifier + gate)
+             └── analyze_query
 ```
 
 ## Contributing
@@ -229,8 +266,8 @@ CLI args / env vars
 Contributions are welcome! Areas to contribute:
 
 - **Add SQL statement types** — edit `src/permissions.ts`, add to `STATEMENT_MAP` and the `checkPermission` switch.
-- **Add a new tool** — create `src/tools/your-tool.ts`, export a `registerYourTool(server, pool)` function, import and call it in `src/index.ts`.
-- **Add database support** — PostgreSQL, SQLite, etc. will be added as separate connection adapters.
+- **Add a new tool** — create `src/tools/your-tool.ts`, export a `registerYourTool(server, driver)` function, import and call it in `src/index.ts`.
+- **Add database support** — create a new driver in `src/drivers/` implementing the `DatabaseDriver` interface.
 
 ### Development
 
