@@ -2,7 +2,7 @@
 
 > Give AI agents accurate SQL database schema and data access. No more schema guessing.
 
-MCP clients like Claude Desktop, Cursor, and Windsurf don't have terminal access — so without an MCP server, they're limited to what's in your code files. `sql-mcp` gives them live schema and data access directly from your **MySQL, PostgreSQL, or SQLite** database, with **read-only by default** and explicit opt-in for write operations.
+MCP clients like Claude Desktop, Cursor, and Windsurf don't have terminal access — so without an MCP server, they're limited to what's in your code files. `sql-mcp` gives them live schema and data access directly from your **MySQL, PostgreSQL, SQL Server, or SQLite** database, with **read-only by default** and explicit opt-in for write operations.
 
 ## Supported Databases
 
@@ -10,6 +10,7 @@ MCP clients like Claude Desktop, Cursor, and Windsurf don't have terminal access
 |---|---|
 | **MySQL** | `mysql://user:pass@host:3306/db` |
 | **PostgreSQL** | `postgres://user:pass@host:5432/db` (or `postgresql://`) |
+| **SQL Server** | `mssql://user:pass@host:1433/db` (or `sqlserver://`) |
 | **SQLite** | `sqlite:./path/to/file.db` (or `file:./path` or just `*.db`/`*.sqlite`) |
 
 The driver is auto-detected from the URI scheme.
@@ -23,9 +24,14 @@ npx @salmanulfaris/sql-mcp --db 'mysql://user:password@localhost:3306/mydb'
 # PostgreSQL
 npx @salmanulfaris/sql-mcp --db 'postgres://user:password@localhost:5432/mydb'
 
+# SQL Server
+npx @salmanulfaris/sql-mcp --db 'mssql://user:password@localhost:1433/mydb'
+
 # SQLite
 npx @salmanulfaris/sql-mcp --db 'sqlite:./mydb.sqlite'
 ```
+
+> **SQL Server TLS:** pass `--ssl` to enforce an encrypted, certificate-validated connection (required by Azure SQL). Without it, the connection is unencrypted and the server certificate is trusted (fine for local dev). You can also override per-connection with URI query params: `mssql://user:pass@host:1433/db?encrypt=true&trustServerCertificate=true`.
 
 ## Integration
 
@@ -231,6 +237,8 @@ analyze_query({ sql: "SELECT ...", execute: true, timeout_ms: 30000 })
 
 Output includes detected issues like `⚠ Full table scan on \`orders\`` or `⚠ Filesort — consider index on ORDER BY columns`.
 
+The plan source is dialect-specific: `EXPLAIN`/`EXPLAIN ANALYZE` on MySQL and PostgreSQL, `EXPLAIN QUERY PLAN` on SQLite, and `SHOWPLAN_ALL` (plan-only) / `STATISTICS PROFILE` (`execute=true`) on SQL Server. SQL Server insights flag table/clustered-index scans, key lookups, sorts, hash joins, and estimate-vs-actual row skew.
+
 ## Security Model
 
 - **Default**: only `SELECT`, `SHOW`, `DESCRIBE`, `EXPLAIN` are allowed.
@@ -250,7 +258,7 @@ Output includes detected issues like `⚠ Full table scan on \`orders\`` or `⚠
        ▼
   ServerConfig (permissions + connection)
        │
-       ├── createDriver (mysql2 / pg / better-sqlite3)
+       ├── createDriver (mysql2 / pg / mssql / better-sqlite3)
        │
        └── McpServer
              ├── list_tables

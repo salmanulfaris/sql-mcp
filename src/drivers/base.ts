@@ -1,4 +1,4 @@
-export type Dialect = 'mysql' | 'postgres' | 'sqlite';
+export type Dialect = 'mysql' | 'postgres' | 'sqlite' | 'mssql';
 
 export interface TableInfo {
   name: string;

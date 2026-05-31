@@ -5,3 +5,4 @@ dist/
 .env.*
 *.log
 .sql-mcp
+.DS_Store

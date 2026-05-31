@@ -64,6 +64,7 @@ function parseArgs(): ServerConfig {
         'Supported databases:',
         '  MySQL:      mysql://user:password@host:3306/database',
         '  PostgreSQL: postgres://user:password@host:5432/database',
+        '  SQL Server: mssql://user:password@host:1433/database',
         '  SQLite:     sqlite:./path/to/database.db',
         '',
         'Options:',
@@ -113,7 +114,7 @@ async function main(): Promise<void> {
 
   const server = new McpServer({
     name: 'sql-mcp',
-    version: '0.3.2',
+    version: '0.4.0',
   });
 
   registerListTables(server, driver);
