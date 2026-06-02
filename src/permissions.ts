@@ -27,8 +27,10 @@ function stripComments(sql: string): string {
 
 export function classifySqlStatement(sql: string): SqlStatementType {
   const stripped = stripComments(sql).replace(/\s+/g, ' ').trim();
-  const words = stripped.split(' ').filter(Boolean);
+  return classifyTokens(stripped.split(' ').filter(Boolean));
+}
 
+function classifyTokens(words: string[]): SqlStatementType {
   if (words.length === 0) return 'UNKNOWN';
 
   const first = words[0].toUpperCase();
@@ -41,7 +43,37 @@ export function classifySqlStatement(sql: string): SqlStatementType {
     return 'DROP';
   }
 
+  // EXPLAIN / DESCRIBE / DESC can wrap an arbitrary inner statement
+  // (e.g. `EXPLAIN ANALYZE DELETE ...`, `EXPLAIN DROP TABLE ...`). On MySQL and
+  // Postgres, EXPLAIN ANALYZE actually executes that inner statement. Treating the
+  // wrapper as a blanket read-only allow lets writes/DDL bypass the gate, so we
+  // strip the wrapper (and any of its options) and classify the inner statement.
+  if (first === 'EXPLAIN' || first === 'DESCRIBE' || first === 'DESC') {
+    const innerStart = findInnerStatement(words);
+    if (innerStart !== -1) {
+      return classifyTokens(words.slice(innerStart));
+    }
+    // No inner statement, e.g. `DESCRIBE my_table` / `EXPLAIN my_table` — plain
+    // metadata read, safe to allow.
+    return first === 'EXPLAIN' ? 'EXPLAIN' : 'DESCRIBE';
+  }
+
   return STATEMENT_MAP[first] ?? 'UNKNOWN';
+}
+
+// Locate the first token after an EXPLAIN/DESCRIBE wrapper that begins an actual
+// statement, skipping wrapper options (ANALYZE, VERBOSE, FORMAT=..., (ANALYZE, BUFFERS),
+// QUERY PLAN, etc.). Returns its index, or -1 if the wrapper targets no statement.
+// WITH is included so an EXPLAIN'd CTE is classified as the (currently unsupported,
+// thus blocked) WITH statement rather than the SELECT buried inside its body.
+function findInnerStatement(words: string[]): number {
+  for (let i = 1; i < words.length; i++) {
+    const word = words[i].toUpperCase();
+    if (word in STATEMENT_MAP || word === 'WITH') {
+      return i;
+    }
+  }
+  return -1;
 }
 
 export function checkPermission(

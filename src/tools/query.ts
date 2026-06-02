@@ -54,7 +54,15 @@ export function registerQuery(
         }
 
         const isReadOnly = READ_ONLY_TYPES.includes(statementType);
-        const result = await driver.executeQuery(sql, { isReadOnly, maxRows: max_rows });
+        // Only bound plain SELECTs. SHOW/DESCRIBE/EXPLAIN do not accept a LIMIT and
+        // their output is inherently small. An EXPLAIN'd SELECT classifies as SELECT
+        // here, and appending LIMIT to the EXPLAIN form is harmless.
+        const appendLimit = statementType === 'SELECT';
+        const result = await driver.executeQuery(sql, {
+          isReadOnly,
+          appendLimit,
+          maxRows: max_rows,
+        });
 
         if (isReadOnly) {
           const rows = result.rows ?? [];

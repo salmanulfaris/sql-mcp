@@ -218,7 +218,7 @@ export class PostgresDriver implements DatabaseDriver {
 
   async executeQuery(sql: string, opts: ExecuteQueryOptions): Promise<QueryResult> {
     let finalSql = sql;
-    if (opts.isReadOnly && !/\bLIMIT\b/i.test(sql)) {
+    if (opts.appendLimit && !/\bLIMIT\b/i.test(sql)) {
       finalSql = sql.trimEnd().replace(/;$/, '') + ` LIMIT ${opts.maxRows}`;
     }
     const result = await this.pool.query(finalSql);

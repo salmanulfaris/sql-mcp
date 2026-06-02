@@ -276,7 +276,7 @@ export class MSSQLDriver implements DatabaseDriver {
     let finalSql = sql.trim().replace(/;$/, '');
     // MSSQL has no LIMIT — inject TOP into bare SELECTs to bound read-only results.
     if (
-      opts.isReadOnly &&
+      opts.appendLimit &&
       /^SELECT\b/i.test(finalSql) &&
       !/\bTOP\b/i.test(finalSql) &&
       !/\bOFFSET\b/i.test(finalSql)

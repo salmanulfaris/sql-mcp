@@ -28,6 +28,7 @@ try {
     defaultTag: 'latest',
     registry: 'https://registry.npmjs.org/',
     forceAuth: { token: TOKEN, alwaysAuth: true },
+    ...(process.env.NPM_OTP ? { otp: process.env.NPM_OTP } : {}),
   });
 
   console.log('✓ Published successfully:', result);

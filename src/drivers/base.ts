@@ -44,6 +44,10 @@ export interface QueryResult {
 
 export interface ExecuteQueryOptions {
   isReadOnly: boolean;
+  // Whether to append a bounding LIMIT/TOP to cap result size. True only for plain
+  // SELECTs — not SHOW/DESCRIBE/EXPLAIN, which do not accept a row limit and whose
+  // output is already small.
+  appendLimit: boolean;
   maxRows: number;
 }
 
