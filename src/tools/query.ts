@@ -1,9 +1,9 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import type { DatabaseDriver } from '../drivers/base.js';
-import type { PermissionConfig } from '../types.js';
+import type { OutputFormat, PermissionConfig } from '../types.js';
 import { classifySqlStatement, checkPermission, hasMultipleStatements } from '../permissions.js';
-import { formatTable } from '../format.js';
+import { formatTable, jsonResult, isJsonFormat, toValueArrays } from '../format.js';
 
 const READ_ONLY_TYPES = ['SELECT', 'SHOW', 'DESCRIBE', 'EXPLAIN'];
 
@@ -11,6 +11,7 @@ export function registerQuery(
   server: McpServer,
   driver: DatabaseDriver,
   permissions: PermissionConfig,
+  format: OutputFormat,
 ): void {
   server.registerTool(
     'query',
@@ -32,21 +33,18 @@ export function registerQuery(
     async ({ sql, max_rows }) => {
       try {
         if (hasMultipleStatements(sql)) {
-          return {
-            content: [
-              {
-                type: 'text' as const,
-                text: 'Multi-statement queries are not allowed. Execute one statement at a time.',
-              },
-            ],
-            isError: true,
-          };
+          const msg = 'Multi-statement queries are not allowed. Execute one statement at a time.';
+          if (isJsonFormat(format)) return jsonResult({ error: msg }, true);
+          return { content: [{ type: 'text' as const, text: msg }], isError: true };
         }
 
         const statementType = classifySqlStatement(sql);
         const permission = checkPermission(statementType, permissions);
 
         if (!permission.allowed) {
+          if (isJsonFormat(format)) {
+            return jsonResult({ error: 'permission_denied', reason: permission.reason }, true);
+          }
           return {
             content: [{ type: 'text' as const, text: `Permission denied: ${permission.reason}` }],
             isError: true,
@@ -66,12 +64,28 @@ export function registerQuery(
 
         if (isReadOnly) {
           const rows = result.rows ?? [];
+          if (isJsonFormat(format)) {
+            const cols = result.columns ?? [];
+            return jsonResult({
+              dialect: driver.dialect,
+              rowCount: rows.length,
+              columns: cols,
+              rows: format === 'json-compact' ? toValueArrays(rows, cols) : rows,
+            });
+          }
           if (rows.length === 0) {
             return { content: [{ type: 'text' as const, text: 'Query returned no rows.' }] };
           }
           const text = `${rows.length} row(s) returned [${driver.dialect}]:\n\n${formatTable(rows, result.columns)}`;
           return { content: [{ type: 'text' as const, text }] };
         } else {
+          if (isJsonFormat(format)) {
+            return jsonResult({
+              dialect: driver.dialect,
+              affectedRows: result.affectedRows ?? 0,
+              ...(result.insertId !== undefined ? { insertId: result.insertId } : {}),
+            });
+          }
           const lines = [
             `Query executed successfully [${driver.dialect}].`,
             `Affected rows: ${result.affectedRows ?? 0}`,
@@ -81,6 +95,9 @@ export function registerQuery(
         }
       } catch (err) {
         const dbErr = err as { code?: string; message: string };
+        if (isJsonFormat(format)) {
+          return jsonResult({ error: dbErr.message, ...(dbErr.code ? { code: dbErr.code } : {}) }, true);
+        }
         const code = dbErr.code ? ` [${dbErr.code}]` : '';
         return {
           content: [{ type: 'text' as const, text: `Query error${code}: ${dbErr.message}` }],

@@ -10,7 +10,7 @@ import { registerGetSchema } from './tools/get-schema.js';
 import { registerGetSampleData } from './tools/get-sample-data.js';
 import { registerQuery } from './tools/query.js';
 import { registerAnalyzeQuery } from './tools/analyze-query.js';
-import type { ServerConfig } from './types.js';
+import type { ServerConfig, OutputFormat } from './types.js';
 
 function loadProjectConfig(): Record<string, string> {
   try {
@@ -42,6 +42,7 @@ function parseArgs(): ServerConfig {
   let allowDelete = (project['ALLOW_DELETE'] ?? env['ALLOW_DELETE']) === 'true';
   let allowDDL = (project['ALLOW_DDL'] ?? env['ALLOW_DDL']) === 'true';
   let allowDropDatabase = (project['ALLOW_DROP_DATABASE'] ?? env['ALLOW_DROP_DATABASE']) === 'true';
+  let outputFormat = (project['OUTPUT_FORMAT'] ?? env['OUTPUT_FORMAT'] ?? 'text').toLowerCase();
 
   for (let i = 0; i < args.length; i++) {
     const arg = args[i];
@@ -51,6 +52,14 @@ function parseArgs(): ServerConfig {
     else if (arg === '--allow-delete') allowDelete = true;
     else if (arg === '--allow-ddl') allowDDL = true;
     else if (arg === '--allow-drop-database') allowDropDatabase = true;
+    else if (arg === '--output-format' && args[i + 1]) outputFormat = args[++i].toLowerCase();
+  }
+
+  if (!['text', 'json', 'json-compact'].includes(outputFormat)) {
+    process.stderr.write(
+      `sql-mcp: unknown output format '${outputFormat}', falling back to 'text'. Valid: text, json, json-compact.\n`,
+    );
+    outputFormat = 'text';
   }
 
   if (!dbUri) {
@@ -74,6 +83,7 @@ function parseArgs(): ServerConfig {
         '  --allow-delete          Enable DELETE (or ALLOW_DELETE=true)',
         '  --allow-ddl             Enable ALTER, CREATE, DROP, TRUNCATE (or ALLOW_DDL=true)',
         '  --allow-drop-database   Enable DROP DATABASE (or ALLOW_DROP_DATABASE=true)',
+        '  --output-format <fmt>   Output format: text (default), json, or json-compact (or OUTPUT_FORMAT=...)',
         '',
       ].join('\n'),
     );
@@ -83,6 +93,7 @@ function parseArgs(): ServerConfig {
   return {
     connection: { uri: dbUri, ssl },
     permissions: { allowWrite, allowDelete, allowDDL, allowDropDatabase },
+    outputFormat: outputFormat as OutputFormat,
   };
 }
 
@@ -114,15 +125,16 @@ async function main(): Promise<void> {
 
   const server = new McpServer({
     name: 'sql-mcp',
-    version: '0.4.0',
+    version: '0.5.0',
   });
 
-  registerListTables(server, driver);
-  registerDescribeTable(server, driver);
-  registerGetSchema(server, driver);
-  registerGetSampleData(server, driver);
-  registerQuery(server, driver, config.permissions);
-  registerAnalyzeQuery(server, driver);
+  const fmt = config.outputFormat;
+  registerListTables(server, driver, fmt);
+  registerDescribeTable(server, driver, fmt);
+  registerGetSchema(server, driver, fmt);
+  registerGetSampleData(server, driver, fmt);
+  registerQuery(server, driver, config.permissions, fmt);
+  registerAnalyzeQuery(server, driver, fmt);
 
   const transport = new StdioServerTransport();
   await server.connect(transport);

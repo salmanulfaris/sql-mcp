@@ -10,9 +10,12 @@ export interface ConnectionConfig {
   ssl: boolean;
 }
 
+export type OutputFormat = 'text' | 'json' | 'json-compact';
+
 export interface ServerConfig {
   connection: ConnectionConfig;
   permissions: PermissionConfig;
+  outputFormat: OutputFormat;
 }
 
 export type SqlStatementType =

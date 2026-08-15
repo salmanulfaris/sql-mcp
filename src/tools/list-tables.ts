@@ -1,8 +1,14 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import type { DatabaseDriver } from '../drivers/base.js';
+import type { OutputFormat } from '../types.js';
+import { jsonResult, isJsonFormat } from '../format.js';
 
-export function registerListTables(server: McpServer, driver: DatabaseDriver): void {
+export function registerListTables(
+  server: McpServer,
+  driver: DatabaseDriver,
+  format: OutputFormat,
+): void {
   server.registerTool(
     'list_tables',
     {
@@ -15,6 +21,10 @@ export function registerListTables(server: McpServer, driver: DatabaseDriver): v
         const items = await driver.listTables();
         const tables = items.filter((i) => i.type === 'TABLE').map((i) => i.name);
         const views = items.filter((i) => i.type === 'VIEW').map((i) => i.name);
+
+        if (isJsonFormat(format)) {
+          return jsonResult({ dialect: driver.dialect, tables, views });
+        }
 
         const parts: string[] = [
           `${items.length} object(s) found (${tables.length} table(s), ${views.length} view(s)) [${driver.dialect}]:`,
@@ -34,6 +44,7 @@ export function registerListTables(server: McpServer, driver: DatabaseDriver): v
         return { content: [{ type: 'text' as const, text: parts.join('\n') }] };
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
+        if (isJsonFormat(format)) return jsonResult({ error: message }, true);
         return { content: [{ type: 'text' as const, text: `Error: ${message}` }], isError: true };
       }
     },

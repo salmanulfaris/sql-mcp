@@ -1,9 +1,14 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import type { DatabaseDriver } from '../drivers/base.js';
-import { formatTable } from '../format.js';
+import type { OutputFormat } from '../types.js';
+import { formatTable, jsonResult, isJsonFormat, toValueArrays } from '../format.js';
 
-export function registerGetSampleData(server: McpServer, driver: DatabaseDriver): void {
+export function registerGetSampleData(
+  server: McpServer,
+  driver: DatabaseDriver,
+  format: OutputFormat,
+): void {
   server.registerTool(
     'get_sample_data',
     {
@@ -41,6 +46,18 @@ export function registerGetSampleData(server: McpServer, driver: DatabaseDriver)
 
         const result = await driver.getSampleData(table_name, limit, order_by);
         const rows = result.rows ?? [];
+
+        if (isJsonFormat(format)) {
+          const cols = result.columns ?? [];
+          return jsonResult({
+            table: table_name,
+            dialect: driver.dialect,
+            rowCount: rows.length,
+            columns: cols,
+            rows: format === 'json-compact' ? toValueArrays(rows, cols) : rows,
+          });
+        }
+
         if (rows.length === 0) {
           return { content: [{ type: 'text' as const, text: `Table '${table_name}' is empty.` }] };
         }
@@ -49,6 +66,7 @@ export function registerGetSampleData(server: McpServer, driver: DatabaseDriver)
         return { content: [{ type: 'text' as const, text }] };
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
+        if (isJsonFormat(format)) return jsonResult({ error: message }, true);
         return { content: [{ type: 'text' as const, text: `Error: ${message}` }], isError: true };
       }
     },

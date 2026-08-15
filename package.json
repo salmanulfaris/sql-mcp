@@ -1,6 +1,6 @@
 {
   "name": "@salmanulfaris/sql-mcp",
-  "version": "0.4.1",
+  "version": "0.5.0",
   "description": "MCP server that gives AI agents accurate SQL schema and data access (MySQL, PostgreSQL, SQL Server, SQLite) — no more schema guessing",
   "type": "module",
   "bin": {

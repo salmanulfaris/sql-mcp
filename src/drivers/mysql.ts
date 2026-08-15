@@ -23,6 +23,11 @@ export class MySQLDriver implements DatabaseDriver {
   constructor(uri: string, ssl: boolean) {
     this.pool = mysql.createPool({
       uri,
+      // Return DATE/DATETIME/TIMESTAMP as strings exactly as stored, instead of
+      // JS Date objects. Avoids String(Date) rendering "... GMT+0300 (Arabian
+      // Standard Time)" and the UTC day-shift that toISOString() would cause on
+      // bare DATE values.
+      dateStrings: true,
       waitForConnections: true,
       connectionLimit: 10,
       queueLimit: 0,

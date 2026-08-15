@@ -16,6 +16,15 @@ import { isValidIdentifier } from '../permissions.js';
 
 const { Pool } = pg;
 
+// Return date/time types as the raw strings Postgres sends, instead of JS Date
+// objects. Keeps values exactly as stored (no timezone conversion, no day-shift)
+// and avoids String(Date) rendering a locale timezone name.
+pg.types.setTypeParser(1082, (v) => v); // date
+pg.types.setTypeParser(1083, (v) => v); // time
+pg.types.setTypeParser(1114, (v) => v); // timestamp without time zone
+pg.types.setTypeParser(1184, (v) => v); // timestamp with time zone
+pg.types.setTypeParser(1266, (v) => v); // time with time zone
+
 export class PostgresDriver implements DatabaseDriver {
   readonly dialect: Dialect = 'postgres';
   private pool: pg.Pool;

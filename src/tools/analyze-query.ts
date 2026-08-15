@@ -1,9 +1,15 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import type { DatabaseDriver } from '../drivers/base.js';
+import type { OutputFormat } from '../types.js';
+import { jsonResult, isJsonFormat } from '../format.js';
 import { classifySqlStatement, hasMultipleStatements } from '../permissions.js';
 
-export function registerAnalyzeQuery(server: McpServer, driver: DatabaseDriver): void {
+export function registerAnalyzeQuery(
+  server: McpServer,
+  driver: DatabaseDriver,
+  format: OutputFormat,
+): void {
   server.registerTool(
     'analyze_query',
     {
@@ -31,44 +37,35 @@ export function registerAnalyzeQuery(server: McpServer, driver: DatabaseDriver):
     async ({ sql, execute, timeout_ms }) => {
       try {
         if (hasMultipleStatements(sql)) {
-          return {
-            content: [
-              {
-                type: 'text' as const,
-                text: 'Multi-statement queries are not allowed. Analyze one statement at a time.',
-              },
-            ],
-            isError: true,
-          };
+          const msg = 'Multi-statement queries are not allowed. Analyze one statement at a time.';
+          if (isJsonFormat(format)) return jsonResult({ error: msg }, true);
+          return { content: [{ type: 'text' as const, text: msg }], isError: true };
         }
 
         if (execute) {
           const stmtType = classifySqlStatement(sql);
           if (stmtType !== 'SELECT') {
-            return {
-              content: [
-                {
-                  type: 'text' as const,
-                  text: `ANALYZE with execute=true is only allowed for SELECT statements (got ${stmtType}). EXPLAIN ANALYZE would actually run the query and mutate data for write operations. Use execute=false for plan-only analysis of write statements.`,
-                },
-              ],
-              isError: true,
-            };
+            const msg = `ANALYZE with execute=true is only allowed for SELECT statements (got ${stmtType}). EXPLAIN ANALYZE would actually run the query and mutate data for write operations. Use execute=false for plan-only analysis of write statements.`;
+            if (isJsonFormat(format)) return jsonResult({ error: msg, statementType: stmtType }, true);
+            return { content: [{ type: 'text' as const, text: msg }], isError: true };
           }
         }
 
         const result = await driver.analyzeQuery(sql, { execute, timeoutMs: timeout_ms });
 
         if (result.timedOut) {
-          return {
-            content: [
-              {
-                type: 'text' as const,
-                text: `Analyze timed out after ${timeout_ms}ms. Add a WHERE/LIMIT clause to narrow the query, or increase timeout_ms.`,
-              },
-            ],
-            isError: true,
-          };
+          const msg = `Analyze timed out after ${timeout_ms}ms. Add a WHERE/LIMIT clause to narrow the query, or increase timeout_ms.`;
+          if (isJsonFormat(format)) return jsonResult({ error: 'timed_out', timeoutMs: timeout_ms, message: msg }, true);
+          return { content: [{ type: 'text' as const, text: msg }], isError: true };
+        }
+
+        if (isJsonFormat(format)) {
+          return jsonResult({
+            dialect: driver.dialect,
+            executed: result.executed,
+            insights: result.insights,
+            plan: result.raw,
+          });
         }
 
         const header = result.executed
@@ -88,6 +85,9 @@ export function registerAnalyzeQuery(server: McpServer, driver: DatabaseDriver):
         return { content: [{ type: 'text' as const, text: parts.join('\n') }] };
       } catch (err) {
         const dbErr = err as { code?: string; message: string };
+        if (isJsonFormat(format)) {
+          return jsonResult({ error: dbErr.message, ...(dbErr.code ? { code: dbErr.code } : {}) }, true);
+        }
         const code = dbErr.code ? ` [${dbErr.code}]` : '';
         return {
           content: [{ type: 'text' as const, text: `Analyze error${code}: ${dbErr.message}` }],

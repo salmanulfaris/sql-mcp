@@ -1,8 +1,14 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import type { DatabaseDriver } from '../drivers/base.js';
+import type { OutputFormat } from '../types.js';
+import { jsonResult, isJsonFormat } from '../format.js';
 
-export function registerDescribeTable(server: McpServer, driver: DatabaseDriver): void {
+export function registerDescribeTable(
+  server: McpServer,
+  driver: DatabaseDriver,
+  format: OutputFormat,
+): void {
   server.registerTool(
     'describe_table',
     {
@@ -15,6 +21,11 @@ export function registerDescribeTable(server: McpServer, driver: DatabaseDriver)
     async ({ table_name }) => {
       try {
         const desc = await driver.describeTable(table_name);
+
+        if (isJsonFormat(format)) {
+          return jsonResult({ dialect: driver.dialect, ...desc });
+        }
+
         const parts: string[] = [`Table: ${desc.name} [${driver.dialect}]`, '', 'Columns:'];
 
         for (const col of desc.columns) {
@@ -49,6 +60,7 @@ export function registerDescribeTable(server: McpServer, driver: DatabaseDriver)
         return { content: [{ type: 'text' as const, text: parts.join('\n') }] };
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
+        if (isJsonFormat(format)) return jsonResult({ error: message }, true);
         return { content: [{ type: 'text' as const, text: `Error: ${message}` }], isError: true };
       }
     },

@@ -64,6 +64,18 @@ claude mcp add sql-mcp -e DB_URL=mysql://user:password@host:3306/mydb -- npx @sa
 
 Note the `--` before `npx` — it tells `claude mcp add` to stop parsing flags so `--db` reaches our server.
 
+#### Credential-free install
+
+Register the server once with **no credentials in the command**:
+
+```bash
+claude mcp add sql-mcp -- npx @salmanulfaris/sql-mcp
+```
+
+This keeps your database URL out of shell history and MCP config files. sql-mcp resolves the database at startup instead, from whichever project you launch Claude in — a [`.sql-mcp` file](#per-project-database-config) in the project root, or a `DB_URL` environment variable. One global registration then serves every project, each connecting to its own database.
+
+> With no `--db` flag, no `.sql-mcp` file, and no `DB_URL` set, the server has nothing to connect to and will report a startup error until you provide one of them.
+
 See [Claude Code MCP docs](https://code.claude.com/docs/en/mcp) for more on project-level vs global MCP setup.
 
 ### Cursor (`~/.cursor/mcp.json`)
@@ -148,12 +160,12 @@ Create a `.sql-mcp` file in your project root:
 DB_URL=mysql://user:password@localhost:3306/my_project_db
 ```
 
-sql-mcp reads this file on startup and uses it over the global `--db` flag or `DB_URL` env var. Switch projects and it automatically connects to the right database.
+sql-mcp reads this file on startup. It takes precedence over the `DB_URL` environment variable, so switching projects automatically connects to the right database — as long as you don't also pass a `--db` flag on the command line, which overrides everything.
 
 **Priority order:**
 
 ```
-.sql-mcp file  >  --db CLI flag  >  DB_URL env var
+--db CLI flag  >  .sql-mcp file  >  DB_URL env var
 ```
 
 You can also set permission flags in the file:
@@ -182,8 +194,21 @@ The global MCP config (in Claude Desktop, Cursor, etc.) stays as-is. The `.sql-m
 | `--allow-delete` | `ALLOW_DELETE=true` | `ALLOW_DELETE=true` | false | Enable DELETE |
 | `--allow-ddl` | `ALLOW_DDL=true` | `ALLOW_DDL=true` | false | Enable ALTER, CREATE, DROP, TRUNCATE |
 | `--allow-drop-database` | `ALLOW_DROP_DATABASE=true` | `ALLOW_DROP_DATABASE=true` | false | Enable DROP DATABASE |
+| `--output-format <fmt>` | `OUTPUT_FORMAT` | `OUTPUT_FORMAT` | `text` | Output format: `text`, `json`, or `json-compact` |
 
 Priority: CLI flags > `.sql-mcp` file > environment variables.
+
+### Output Format
+
+By default, results are returned as human-readable text tables. Set `--output-format json` (or `OUTPUT_FORMAT=json`) to have every tool return compact JSON instead, which agents can parse directly.
+
+| Format | Shape | When to use |
+|---|---|---|
+| `text` (default) | ASCII tables | Human-readable; good default |
+| `json` | Rows as array-of-objects: `{"columns":[...],"rows":[{...},{...}]}` | Structured/nested data (schema, foreign keys); easiest to parse |
+| `json-compact` | Rows as value arrays: `{"columns":[...],"rows":[[...],[...]]}` | Wide result sets — column names appear once, so it uses noticeably fewer tokens |
+
+> **Note:** JSON is not always cheaper than text. For wide tables, `json` repeats column names on every row and can cost *more* tokens than the text table — use `json-compact` there. For narrow tables and schema output, `json` is smaller. `json-compact` only changes the row shape of `query` and `get_sample_data`; the other tools return identical JSON in both modes.
 
 ### Environment Variables
 
