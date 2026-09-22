@@ -339,6 +339,105 @@
     </div>
   </section>
 
+  <!-- INSTALL -->
+  <section class="section" id="install">
+    <div class="wrap">
+      <div class="sec-head">
+        <span class="sec-kicker">install</span>
+        <h2>Add it to your client in one line</h2>
+        <p class="sec-sub">No build step — <code style="font-family:var(--mono);color:var(--coral)">npx</code> fetches and runs it. Pick your client below.</p>
+      </div>
+
+      <div class="tabs" id="installTabs">
+        <div class="tablist" role="tablist" aria-label="Install instructions">
+          <button role="tab" id="t-code" aria-controls="p-code" aria-selected="true" tabindex="0">Claude Code</button>
+          <button role="tab" id="t-desktop" aria-controls="p-desktop" aria-selected="false" tabindex="-1">Claude Desktop</button>
+          <button role="tab" id="t-cursor" aria-controls="p-cursor" aria-selected="false" tabindex="-1">Cursor</button>
+          <button role="tab" id="t-antigravity" aria-controls="p-antigravity" aria-selected="false" tabindex="-1">Antigravity</button>
+          <button role="tab" id="t-codex" aria-controls="p-codex" aria-selected="false" tabindex="-1">Codex</button>
+        </div>
+
+        <div class="panel" id="p-code" role="tabpanel" aria-labelledby="t-code">
+          <div class="code">
+            <div class="code-head">
+              <span class="fn">terminal</span>
+              <button class="copy" data-copy="claude mcp add sql-mcp -e DB_URL=postgres://user:pass@host:5432/mydb -- npx @salmanulfaris/sql-mcp">Copy</button>
+            </div>
+<pre><span class="d"># register once, credentials via env var</span>
+<span class="p">claude</span> mcp add sql-mcp <span class="k">-e</span> DB_URL=<span class="s">postgres://user:pass@host:5432/mydb</span> \
+  <span class="k">--</span> npx @salmanulfaris/sql-mcp</pre>
+          </div>
+        </div>
+
+        <div class="panel" id="p-desktop" role="tabpanel" aria-labelledby="t-desktop" hidden>
+          <div class="code">
+            <div class="code-head">
+              <span class="fn">claude_desktop_config.json</span>
+              <button class="copy" data-copy='{&#10;  "mcpServers": {&#10;    "sql-mcp": {&#10;      "command": "npx",&#10;      "args": ["@salmanulfaris/sql-mcp"],&#10;      "env": { "DB_URL": "postgres://user:pass@host:5432/mydb" }&#10;    }&#10;  }&#10;}'>Copy</button>
+            </div>
+<pre>{
+  <span class="s">"mcpServers"</span>: {
+    <span class="s">"sql-mcp"</span>: {
+      <span class="s">"command"</span>: <span class="s">"npx"</span>,
+      <span class="s">"args"</span>: [<span class="s">"@salmanulfaris/sql-mcp"</span>],
+      <span class="s">"env"</span>: { <span class="s">"DB_URL"</span>: <span class="s">"postgres://user:pass@host:5432/mydb"</span> }
+    }
+  }
+}</pre>
+          </div>
+        </div>
+
+        <div class="panel" id="p-cursor" role="tabpanel" aria-labelledby="t-cursor" hidden>
+          <div class="code">
+            <div class="code-head">
+              <span class="fn">~/.cursor/mcp.json</span>
+              <button class="copy" data-copy='{&#10;  "mcpServers": {&#10;    "sql-mcp": {&#10;      "command": "npx",&#10;      "args": ["@salmanulfaris/sql-mcp", "--db", "postgres://user:pass@host:5432/mydb"]&#10;    }&#10;  }&#10;}'>Copy</button>
+            </div>
+<pre>{
+  <span class="s">"mcpServers"</span>: {
+    <span class="s">"sql-mcp"</span>: {
+      <span class="s">"command"</span>: <span class="s">"npx"</span>,
+      <span class="s">"args"</span>: [<span class="s">"@salmanulfaris/sql-mcp"</span>, <span class="s">"--db"</span>, <span class="s">"postgres://…"</span>]
+    }
+  }
+}</pre>
+          </div>
+        </div>
+
+        <div class="panel" id="p-antigravity" role="tabpanel" aria-labelledby="t-antigravity" hidden>
+          <div class="code">
+            <div class="code-head">
+              <span class="fn">Antigravity — MCP settings</span>
+              <button class="copy" data-copy='{&#10;  "mcpServers": {&#10;    "sql-mcp": {&#10;      "command": "npx",&#10;      "args": ["@salmanulfaris/sql-mcp"],&#10;      "env": { "DB_URL": "postgres://user:pass@host:5432/mydb" }&#10;    }&#10;  }&#10;}'>Copy</button>
+            </div>
+<pre>{
+  <span class="s">"mcpServers"</span>: {
+    <span class="s">"sql-mcp"</span>: {
+      <span class="s">"command"</span>: <span class="s">"npx"</span>,
+      <span class="s">"args"</span>: [<span class="s">"@salmanulfaris/sql-mcp"</span>],
+      <span class="s">"env"</span>: { <span class="s">"DB_URL"</span>: <span class="s">"postgres://user:pass@host:5432/mydb"</span> }
+    }
+  }
+}</pre>
+          </div>
+        </div>
+
+        <div class="panel" id="p-codex" role="tabpanel" aria-labelledby="t-codex" hidden>
+          <div class="code">
+            <div class="code-head">
+              <span class="fn">~/.codex/config.toml</span>
+              <button class="copy" data-copy='[mcp_servers.sql-mcp]&#10;command = "npx"&#10;args = ["@salmanulfaris/sql-mcp", "--db", "postgres://user:pass@host:5432/mydb"]'>Copy</button>
+            </div>
+<pre><span class="d"># ~/.codex/config.toml (TOML)</span>
+[<span class="p">mcp_servers.sql-mcp</span>]
+command = <span class="s">"npx"</span>
+args = [<span class="s">"@salmanulfaris/sql-mcp"</span>, <span class="s">"--db"</span>, <span class="s">"postgres://…"</span>]</pre>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
   <!-- DATABASES -->
   <section class="section" id="databases">
     <div class="wrap">
@@ -462,72 +561,6 @@
           <span class="mark no">✕</span>
           <span class="what">GRANT · REVOKE · CALL · LOAD DATA</span>
           <span class="exp">Unknown statement types are refused, not guessed at.</span>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- INSTALL -->
-  <section class="section" id="install">
-    <div class="wrap">
-      <div class="sec-head">
-        <span class="sec-kicker">install</span>
-        <h2>Add it to your client in one line</h2>
-        <p class="sec-sub">No build step — <code style="font-family:var(--mono);color:var(--coral)">npx</code> fetches and runs it. Pick your client below.</p>
-      </div>
-
-      <div class="tabs" id="installTabs">
-        <div class="tablist" role="tablist" aria-label="Install instructions">
-          <button role="tab" id="t-code" aria-controls="p-code" aria-selected="true" tabindex="0">Claude Code</button>
-          <button role="tab" id="t-desktop" aria-controls="p-desktop" aria-selected="false" tabindex="-1">Claude Desktop</button>
-          <button role="tab" id="t-cursor" aria-controls="p-cursor" aria-selected="false" tabindex="-1">Cursor</button>
-        </div>
-
-        <div class="panel" id="p-code" role="tabpanel" aria-labelledby="t-code">
-          <div class="code">
-            <div class="code-head">
-              <span class="fn">terminal</span>
-              <button class="copy" data-copy="claude mcp add sql-mcp -e DB_URL=postgres://user:pass@host:5432/mydb -- npx @salmanulfaris/sql-mcp">Copy</button>
-            </div>
-<pre><span class="d"># register once, credentials via env var</span>
-<span class="p">claude</span> mcp add sql-mcp <span class="k">-e</span> DB_URL=<span class="s">postgres://user:pass@host:5432/mydb</span> \
-  <span class="k">--</span> npx @salmanulfaris/sql-mcp</pre>
-          </div>
-        </div>
-
-        <div class="panel" id="p-desktop" role="tabpanel" aria-labelledby="t-desktop" hidden>
-          <div class="code">
-            <div class="code-head">
-              <span class="fn">claude_desktop_config.json</span>
-              <button class="copy" data-copy='{&#10;  "mcpServers": {&#10;    "sql-mcp": {&#10;      "command": "npx",&#10;      "args": ["@salmanulfaris/sql-mcp"],&#10;      "env": { "DB_URL": "postgres://user:pass@host:5432/mydb" }&#10;    }&#10;  }&#10;}'>Copy</button>
-            </div>
-<pre>{
-  <span class="s">"mcpServers"</span>: {
-    <span class="s">"sql-mcp"</span>: {
-      <span class="s">"command"</span>: <span class="s">"npx"</span>,
-      <span class="s">"args"</span>: [<span class="s">"@salmanulfaris/sql-mcp"</span>],
-      <span class="s">"env"</span>: { <span class="s">"DB_URL"</span>: <span class="s">"postgres://user:pass@host:5432/mydb"</span> }
-    }
-  }
-}</pre>
-          </div>
-        </div>
-
-        <div class="panel" id="p-cursor" role="tabpanel" aria-labelledby="t-cursor" hidden>
-          <div class="code">
-            <div class="code-head">
-              <span class="fn">~/.cursor/mcp.json</span>
-              <button class="copy" data-copy='{&#10;  "mcpServers": {&#10;    "sql-mcp": {&#10;      "command": "npx",&#10;      "args": ["@salmanulfaris/sql-mcp", "--db", "postgres://user:pass@host:5432/mydb"]&#10;    }&#10;  }&#10;}'>Copy</button>
-            </div>
-<pre>{
-  <span class="s">"mcpServers"</span>: {
-    <span class="s">"sql-mcp"</span>: {
-      <span class="s">"command"</span>: <span class="s">"npx"</span>,
-      <span class="s">"args"</span>: [<span class="s">"@salmanulfaris/sql-mcp"</span>, <span class="s">"--db"</span>, <span class="s">"postgres://…"</span>]
-    }
-  }
-}</pre>
-          </div>
         </div>
       </div>
     </div>
