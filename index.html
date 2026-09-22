@@ -4,10 +4,43 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>sql-mcp</title>
-<meta name="description" content="Give AI agents accurate SQL schema and data access. A read-only-by-default MCP server for MySQL, PostgreSQL, SQL Server, and SQLite.">
-<meta property="og:title" content="sql-mcp — SQL for AI agents">
-<meta property="og:description" content="Live schema and data access for Claude, Cursor, and other MCP clients. Read-only by default.">
+<meta name="description" content="Give AI agents accurate SQL schema and data access. A read-only-by-default MCP server for MySQL, PostgreSQL, SQL Server, and SQLite — works with Claude, Cursor, and any MCP client.">
+<meta name="keywords" content="sql-mcp, MCP server, Model Context Protocol, SQL, MySQL, PostgreSQL, SQL Server, SQLite, Claude, Claude Code, Cursor, AI agent database, database schema, read-only database access">
+<meta name="author" content="salmanulfaris">
+<meta name="robots" content="index, follow">
+<meta name="theme-color" content="#F4F1EA" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#1C1B17" media="(prefers-color-scheme: dark)">
+<link rel="canonical" href="https://salmanulfaris.github.io/sql-mcp/">
+
+<!-- Open Graph -->
 <meta property="og:type" content="website">
+<meta property="og:site_name" content="sql-mcp">
+<meta property="og:url" content="https://salmanulfaris.github.io/sql-mcp/">
+<meta property="og:title" content="sql-mcp — SQL for AI agents">
+<meta property="og:description" content="Live schema and data access for Claude, Cursor, and any MCP client. Read-only by default, with opt-in writes.">
+
+<!-- Twitter -->
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="sql-mcp — SQL for AI agents">
+<meta name="twitter:description" content="A read-only-by-default MCP server that gives AI agents live schema and data access to MySQL, PostgreSQL, SQL Server, and SQLite.">
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "sql-mcp",
+  "description": "A read-only-by-default MCP server that gives AI agents live schema and data access to MySQL, PostgreSQL, SQL Server, and SQLite.",
+  "applicationCategory": "DeveloperApplication",
+  "operatingSystem": "macOS, Windows, Linux",
+  "url": "https://salmanulfaris.github.io/sql-mcp/",
+  "downloadUrl": "https://www.npmjs.com/package/@salmanulfaris/sql-mcp",
+  "codeRepository": "https://github.com/salmanulfaris/sql-mcp",
+  "license": "https://github.com/salmanulfaris/sql-mcp/blob/master/LICENSE",
+  "author": { "@type": "Person", "name": "salmanulfaris" },
+  "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
+}
+</script>
+
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -36,7 +69,7 @@
     --wrap:1120px;
   }
   *{box-sizing:border-box}
-  html{scroll-behavior:smooth}
+  html{scroll-behavior:smooth;zoom:0.8}
   @media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
   body{
     margin:0;
@@ -291,6 +324,47 @@
   .code .copy.copied{color:var(--str);border-color:var(--str)}
   .k{color:var(--kw)}.s{color:var(--str)}.p{color:var(--coral-bright)}.d{color:var(--term-muted)}
 
+  /* ---------- command builder ---------- */
+  .builder-wrap{margin-top:40px;background:var(--paper-2);border:1px solid var(--line);border-radius:14px;padding:26px}
+  @media (max-width:640px){.builder-wrap{padding:20px 16px}}
+  .cb-selects{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+  .cb-type-row{max-width:340px;margin-bottom:4px}
+  .cb-fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(158px,1fr));gap:16px;margin-top:20px}
+  .cb-field{display:flex;flex-direction:column;gap:7px;min-width:0}
+  .cb-field.span2{grid-column:span 2}
+  .cb-label{font-family:var(--mono);font-size:.75rem;color:var(--muted);font-weight:500}
+  .cb-input,.cb-select{
+    font-family:var(--mono);font-size:.9rem;color:var(--ink);
+    background:var(--paper);border:1px solid var(--line);border-radius:8px;
+    padding:11px 12px;width:100%;transition:border-color .15s;
+  }
+  .cb-input:focus,.cb-select:focus{border-color:var(--coral);outline:none}
+  .cb-input::placeholder{color:#B3ADA1}
+  .cb-select{
+    appearance:none;-webkit-appearance:none;cursor:pointer;padding-right:34px;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%237C766B' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+    background-repeat:no-repeat;background-position:right 12px center;
+  }
+  .cb-ssl{display:flex;align-items:center;gap:9px;margin-top:18px;font-size:.9rem;color:var(--ink-soft);cursor:pointer;user-select:none}
+  .cb-ssl input{width:16px;height:16px;accent-color:var(--coral);flex:none}
+  .cb-out{margin-top:24px;background:var(--term-bg);border:1px solid var(--term-line);border-radius:11px;overflow:hidden}
+  .cb-out-head{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid var(--term-line);background:var(--term-2)}
+  .cb-out-head .fn{font-family:var(--mono);font-size:.78rem;color:var(--term-muted)}
+  .cb-out pre{margin:0;padding:18px;overflow-x:auto;font-family:var(--mono);font-size:.85rem;line-height:1.7;color:var(--term-ink);white-space:pre-wrap;word-break:break-word}
+  @media (max-width:520px){.cb-out pre{font-size:.78rem}}
+  .cb-out .copy{
+    border:1px solid var(--term-line);background:var(--term-bg);color:var(--term-muted);
+    font-family:var(--sans);font-weight:600;font-size:.75rem;padding:5px 10px;border-radius:6px;
+    cursor:pointer;transition:color .15s,border-color .15s;
+  }
+  .cb-out .copy:hover{color:var(--term-ink);border-color:#484540}
+  .cb-out .copy.copied{color:var(--str);border-color:var(--str)}
+  .cb-note{margin-top:14px;font-family:var(--mono);font-size:.78rem;color:var(--muted)}
+  @media (max-width:520px){
+    .cb-selects{grid-template-columns:1fr}
+    .cb-field.span2{grid-column:auto}
+  }
+
   /* ---------- footer ---------- */
   .foot{border-top:1px solid var(--line);padding:44px 0 60px}
   .foot-inner{display:flex;flex-wrap:wrap;gap:24px;align-items:center;justify-content:space-between}
@@ -307,10 +381,10 @@
   <div class="wrap nav-inner">
     <a class="brand" href="#top"><span class="sq"></span>sql<span class="dim">-mcp</span></a>
     <nav class="nav-links">
+      <a href="#install">Install</a>
       <a href="#databases">Databases</a>
       <a href="#tools">Tools</a>
       <a href="#security">Security</a>
-      <a href="#install">Install</a>
     </nav>
     <div class="nav-cta">
       <a class="btn btn-ghost" href="https://www.npmjs.com/package/@salmanulfaris/sql-mcp" target="_blank" rel="noopener">npm</a>
@@ -369,95 +443,73 @@
       <div class="sec-head">
         <span class="sec-kicker">install</span>
         <h2>Add it to your client in one line</h2>
-        <p class="sec-sub">No build step — <code style="font-family:var(--mono);color:var(--coral)">npx</code> fetches and runs it. Pick your client below.</p>
+        <p class="sec-sub">Enter your database details, pick your client, and copy the generated command. It all runs in your browser — nothing you type is sent anywhere.</p>
       </div>
 
-      <div class="tabs" id="installTabs">
-        <div class="tablist" role="tablist" aria-label="Install instructions">
-          <button role="tab" id="t-code" aria-controls="p-code" aria-selected="true" tabindex="0">Claude Code</button>
-          <button role="tab" id="t-desktop" aria-controls="p-desktop" aria-selected="false" tabindex="-1">Claude Desktop</button>
-          <button role="tab" id="t-cursor" aria-controls="p-cursor" aria-selected="false" tabindex="-1">Cursor</button>
-          <button role="tab" id="t-antigravity" aria-controls="p-antigravity" aria-selected="false" tabindex="-1">Antigravity</button>
-          <button role="tab" id="t-codex" aria-controls="p-codex" aria-selected="false" tabindex="-1">Codex</button>
+      <div class="builder-wrap">
+        <div class="cb-type-row cb-field">
+          <label class="cb-label" for="cbType">Database</label>
+          <select class="cb-select" id="cbType">
+            <option value="mysql">MySQL</option>
+            <option value="postgres" selected>PostgreSQL</option>
+            <option value="mssql">SQL Server</option>
+            <option value="sqlite">SQLite</option>
+          </select>
         </div>
 
-        <div class="panel" id="p-code" role="tabpanel" aria-labelledby="t-code">
-          <div class="code">
-            <div class="code-head">
-              <span class="fn">terminal</span>
-              <button class="copy" data-copy="claude mcp add sql-mcp -e DB_URL=postgres://user:pass@host:5432/mydb -- npx @salmanulfaris/sql-mcp">Copy</button>
+        <div id="cbStandard">
+          <div class="cb-fields">
+            <div class="cb-field span2">
+              <label class="cb-label" for="cbHost">Host</label>
+              <input class="cb-input" id="cbHost" type="text" placeholder="localhost" autocomplete="off" spellcheck="false">
             </div>
-<pre><span class="d"># register once, credentials via env var</span>
-<span class="p">claude</span> mcp add sql-mcp <span class="k">-e</span> DB_URL=<span class="s">postgres://user:pass@host:5432/mydb</span> \
-  <span class="k">--</span> npx @salmanulfaris/sql-mcp</pre>
+            <div class="cb-field">
+              <label class="cb-label" for="cbPort">Port</label>
+              <input class="cb-input" id="cbPort" type="text" placeholder="5432" autocomplete="off" spellcheck="false" inputmode="numeric">
+            </div>
+            <div class="cb-field">
+              <label class="cb-label" for="cbDb">Database name</label>
+              <input class="cb-input" id="cbDb" type="text" placeholder="mydb" autocomplete="off" spellcheck="false">
+            </div>
+            <div class="cb-field">
+              <label class="cb-label" for="cbUser">User</label>
+              <input class="cb-input" id="cbUser" type="text" placeholder="user" autocomplete="off" spellcheck="false">
+            </div>
+            <div class="cb-field">
+              <label class="cb-label" for="cbPass">Password</label>
+              <input class="cb-input" id="cbPass" type="text" placeholder="password" autocomplete="off" spellcheck="false">
+            </div>
+          </div>
+          <label class="cb-ssl"><input type="checkbox" id="cbSsl"> Enable SSL/TLS — recommended for hosted databases like Azure SQL or Neon</label>
+        </div>
+
+        <div id="cbSqlite" hidden>
+          <div class="cb-fields">
+            <div class="cb-field span2">
+              <label class="cb-label" for="cbFile">Database file</label>
+              <input class="cb-input" id="cbFile" type="text" placeholder="./mydb.sqlite" autocomplete="off" spellcheck="false">
+            </div>
           </div>
         </div>
 
-        <div class="panel" id="p-desktop" role="tabpanel" aria-labelledby="t-desktop" hidden>
-          <div class="code">
-            <div class="code-head">
-              <span class="fn">claude_desktop_config.json</span>
-              <button class="copy" data-copy='{&#10;  "mcpServers": {&#10;    "sql-mcp": {&#10;      "command": "npx",&#10;      "args": ["@salmanulfaris/sql-mcp"],&#10;      "env": { "DB_URL": "postgres://user:pass@host:5432/mydb" }&#10;    }&#10;  }&#10;}'>Copy</button>
-            </div>
-<pre>{
-  <span class="s">"mcpServers"</span>: {
-    <span class="s">"sql-mcp"</span>: {
-      <span class="s">"command"</span>: <span class="s">"npx"</span>,
-      <span class="s">"args"</span>: [<span class="s">"@salmanulfaris/sql-mcp"</span>],
-      <span class="s">"env"</span>: { <span class="s">"DB_URL"</span>: <span class="s">"postgres://user:pass@host:5432/mydb"</span> }
-    }
-  }
-}</pre>
+        <div class="tabs" id="installTabs">
+          <div class="tablist" role="tablist" aria-label="Choose your client">
+            <button role="tab" data-agent="code" aria-controls="cbPanel" aria-selected="true" tabindex="0">Claude Code</button>
+            <button role="tab" data-agent="desktop" aria-controls="cbPanel" aria-selected="false" tabindex="-1">Claude Desktop</button>
+            <button role="tab" data-agent="cursor" aria-controls="cbPanel" aria-selected="false" tabindex="-1">Cursor</button>
+            <button role="tab" data-agent="antigravity" aria-controls="cbPanel" aria-selected="false" tabindex="-1">Antigravity</button>
+            <button role="tab" data-agent="codex" aria-controls="cbPanel" aria-selected="false" tabindex="-1">Codex</button>
           </div>
         </div>
 
-        <div class="panel" id="p-cursor" role="tabpanel" aria-labelledby="t-cursor" hidden>
-          <div class="code">
-            <div class="code-head">
-              <span class="fn">~/.cursor/mcp.json</span>
-              <button class="copy" data-copy='{&#10;  "mcpServers": {&#10;    "sql-mcp": {&#10;      "command": "npx",&#10;      "args": ["@salmanulfaris/sql-mcp", "--db", "postgres://user:pass@host:5432/mydb"]&#10;    }&#10;  }&#10;}'>Copy</button>
-            </div>
-<pre>{
-  <span class="s">"mcpServers"</span>: {
-    <span class="s">"sql-mcp"</span>: {
-      <span class="s">"command"</span>: <span class="s">"npx"</span>,
-      <span class="s">"args"</span>: [<span class="s">"@salmanulfaris/sql-mcp"</span>, <span class="s">"--db"</span>, <span class="s">"postgres://…"</span>]
-    }
-  }
-}</pre>
+        <div class="cb-out" id="cbPanel" role="tabpanel" aria-live="polite">
+          <div class="cb-out-head">
+            <span class="fn" id="cbFn">terminal</span>
+            <button class="copy" id="cbCopy" type="button">Copy</button>
           </div>
+          <pre id="cbOut"></pre>
         </div>
-
-        <div class="panel" id="p-antigravity" role="tabpanel" aria-labelledby="t-antigravity" hidden>
-          <div class="code">
-            <div class="code-head">
-              <span class="fn">Antigravity — MCP settings</span>
-              <button class="copy" data-copy='{&#10;  "mcpServers": {&#10;    "sql-mcp": {&#10;      "command": "npx",&#10;      "args": ["@salmanulfaris/sql-mcp"],&#10;      "env": { "DB_URL": "postgres://user:pass@host:5432/mydb" }&#10;    }&#10;  }&#10;}'>Copy</button>
-            </div>
-<pre>{
-  <span class="s">"mcpServers"</span>: {
-    <span class="s">"sql-mcp"</span>: {
-      <span class="s">"command"</span>: <span class="s">"npx"</span>,
-      <span class="s">"args"</span>: [<span class="s">"@salmanulfaris/sql-mcp"</span>],
-      <span class="s">"env"</span>: { <span class="s">"DB_URL"</span>: <span class="s">"postgres://user:pass@host:5432/mydb"</span> }
-    }
-  }
-}</pre>
-          </div>
-        </div>
-
-        <div class="panel" id="p-codex" role="tabpanel" aria-labelledby="t-codex" hidden>
-          <div class="code">
-            <div class="code-head">
-              <span class="fn">~/.codex/config.toml</span>
-              <button class="copy" data-copy='[mcp_servers.sql-mcp]&#10;command = "npx"&#10;args = ["@salmanulfaris/sql-mcp", "--db", "postgres://user:pass@host:5432/mydb"]'>Copy</button>
-            </div>
-<pre><span class="d"># ~/.codex/config.toml (TOML)</span>
-[<span class="p">mcp_servers.sql-mcp</span>]
-command = <span class="s">"npx"</span>
-args = [<span class="s">"@salmanulfaris/sql-mcp"</span>, <span class="s">"--db"</span>, <span class="s">"postgres://…"</span>]</pre>
-          </div>
-        </div>
+        <p class="cb-note"># Prefer a .sql-mcp file or an env var to keep credentials out of your shell history.</p>
       </div>
     </div>
   </section>
@@ -640,31 +692,6 @@ args = [<span class="s">"@salmanulfaris/sql-mcp"</span>, <span class="s">"--db"<
     });
   });
 
-  // tabs
-  (function(){
-    var group = document.getElementById('installTabs');
-    if(!group) return;
-    var tabs = Array.prototype.slice.call(group.querySelectorAll('[role=tab]'));
-    function select(tab){
-      tabs.forEach(function(t){
-        var on = t === tab;
-        t.setAttribute('aria-selected', on ? 'true':'false');
-        t.tabIndex = on ? 0 : -1;
-        document.getElementById(t.getAttribute('aria-controls')).hidden = !on;
-      });
-    }
-    tabs.forEach(function(tab, i){
-      tab.addEventListener('click', function(){ select(tab); });
-      tab.addEventListener('keydown', function(e){
-        if(e.key==='ArrowRight'||e.key==='ArrowLeft'){
-          e.preventDefault();
-          var n = (i + (e.key==='ArrowRight'?1:-1) + tabs.length) % tabs.length;
-          tabs[n].focus(); select(tabs[n]);
-        }
-      });
-    });
-  })();
-
   // one orchestrated hero reveal
   (function(){
     var term = document.getElementById('term');
@@ -679,6 +706,123 @@ args = [<span class="s">"@salmanulfaris/sql-mcp"</span>, <span class="s">"--db"<
       });
     }, {threshold:0.25});
     io.observe(term);
+  })();
+
+  // install command builder — fields + client tabs feed one live output
+  (function(){
+    var $ = function(id){ return document.getElementById(id); };
+    var type=$('cbType'), host=$('cbHost'), port=$('cbPort'),
+        dbname=$('cbDb'), user=$('cbUser'), pass=$('cbPass'), file=$('cbFile'),
+        ssl=$('cbSsl'), out=$('cbOut'), fn=$('cbFn'),
+        std=$('cbStandard'), lite=$('cbSqlite'), cbCopy=$('cbCopy'),
+        group=$('installTabs');
+    if(!type || !group) return;
+
+    var tabs = Array.prototype.slice.call(group.querySelectorAll('[role=tab]'));
+    var agent = 'code';
+
+    var meta = {
+      mysql:    { scheme:'mysql',    port:'3306' },
+      postgres: { scheme:'postgres', port:'5432' },
+      mssql:    { scheme:'mssql',    port:'1433' },
+      sqlite:   { scheme:'sqlite' }
+    };
+
+    function buildUri(){
+      var t = type.value;
+      if(t === 'sqlite'){
+        return 'sqlite:' + (file.value.trim() || './mydb.sqlite');
+      }
+      var m = meta[t];
+      var h = host.value.trim() || 'localhost';
+      var p = port.value.trim() || m.port;
+      var d = dbname.value.trim() || 'mydb';
+      var u = user.value.trim();
+      var pw = pass.value;
+      var auth = u ? encodeURIComponent(u) + (pw ? ':' + encodeURIComponent(pw) : '') + '@' : '';
+      return m.scheme + '://' + auth + h + ':' + p + '/' + d;
+    }
+
+    function useSsl(){ return type.value !== 'sqlite' && ssl.checked; }
+
+    function render(){
+      var isLite = type.value === 'sqlite';
+      std.hidden = isLite;
+      lite.hidden = !isLite;
+      if(!isLite){ port.placeholder = meta[type.value].port; }
+
+      var uri = buildUri();
+      var text = '', fname = '';
+      var jsonEnv = '        "DB_URL": "' + uri + '"' + (useSsl() ? ',\n        "SSL": "true"' : '');
+      var jsonBlock =
+        '{\n' +
+        '  "mcpServers": {\n' +
+        '    "sql-mcp": {\n' +
+        '      "command": "npx",\n' +
+        '      "args": ["@salmanulfaris/sql-mcp"],\n' +
+        '      "env": {\n' + jsonEnv + '\n' +
+        '      }\n' +
+        '    }\n' +
+        '  }\n' +
+        '}';
+
+      if(agent === 'code'){
+        fname = 'terminal';
+        text = 'claude mcp add sql-mcp \\\n' +
+               "  -e DB_URL='" + uri + "' \\\n" +
+               (useSsl() ? '  -e SSL=true \\\n' : '') +
+               '  -- npx @salmanulfaris/sql-mcp';
+      } else if(agent === 'desktop'){ fname = 'claude_desktop_config.json'; text = jsonBlock; }
+      else if(agent === 'cursor'){ fname = '~/.cursor/mcp.json'; text = jsonBlock; }
+      else if(agent === 'antigravity'){ fname = 'Antigravity — MCP settings'; text = jsonBlock; }
+      else if(agent === 'codex'){
+        fname = '~/.codex/config.toml';
+        var args = '"@salmanulfaris/sql-mcp", "--db", "' + uri + '"' + (useSsl() ? ', "--ssl"' : '');
+        text = '[mcp_servers.sql-mcp]\n' +
+               'command = "npx"\n' +
+               'args = [' + args + ']';
+      }
+      fn.textContent = fname;
+      out.textContent = text;
+    }
+
+    function selectTab(tab){
+      agent = tab.getAttribute('data-agent');
+      tabs.forEach(function(t){
+        var on = t === tab;
+        t.setAttribute('aria-selected', on ? 'true' : 'false');
+        t.tabIndex = on ? 0 : -1;
+      });
+      render();
+    }
+
+    tabs.forEach(function(tab, i){
+      tab.addEventListener('click', function(){ selectTab(tab); });
+      tab.addEventListener('keydown', function(e){
+        if(e.key === 'ArrowRight' || e.key === 'ArrowLeft'){
+          e.preventDefault();
+          var n = (i + (e.key === 'ArrowRight' ? 1 : -1) + tabs.length) % tabs.length;
+          tabs[n].focus(); selectTab(tabs[n]);
+        }
+      });
+    });
+
+    [type, host, port, dbname, user, pass, file, ssl].forEach(function(n){
+      if(!n) return;
+      n.addEventListener('input', render);
+      n.addEventListener('change', render);
+    });
+    render();
+
+    cbCopy.addEventListener('click', async function(){
+      try{
+        await navigator.clipboard.writeText(out.textContent);
+        var prev = cbCopy.textContent;
+        cbCopy.textContent = 'Copied';
+        cbCopy.classList.add('copied');
+        setTimeout(function(){ cbCopy.textContent = prev; cbCopy.classList.remove('copied'); }, 1500);
+      }catch(e){ /* clipboard unavailable */ }
+    });
   })();
 </script>
 </body>
