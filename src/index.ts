@@ -35,25 +35,39 @@ function parseArgs(): ServerConfig {
   const env = process.env;
   const project = loadProjectConfig();
 
-  // Priority: CLI flags > .sql-mcp > environment variables
-  let dbUri = project['DB_URL'] ?? env['DB_URL'] ?? '';
-  let ssl = (project['SSL'] ?? env['SSL']) === 'true';
-  let allowWrite = (project['ALLOW_WRITE'] ?? env['ALLOW_WRITE']) === 'true';
-  let allowDelete = (project['ALLOW_DELETE'] ?? env['ALLOW_DELETE']) === 'true';
-  let allowDDL = (project['ALLOW_DDL'] ?? env['ALLOW_DDL']) === 'true';
-  let allowDropDatabase = (project['ALLOW_DROP_DATABASE'] ?? env['ALLOW_DROP_DATABASE']) === 'true';
-  let outputFormat = (project['OUTPUT_FORMAT'] ?? env['OUTPUT_FORMAT'] ?? 'text').toLowerCase();
+  // Parse CLI flags into their own values first (undefined/false = not provided).
+  let cliDbUri: string | undefined;
+  let cliSsl = false;
+  let cliAllowWrite = false;
+  let cliAllowDelete = false;
+  let cliAllowDDL = false;
+  let cliAllowDropDatabase = false;
+  let cliOutputFormat: string | undefined;
 
   for (let i = 0; i < args.length; i++) {
     const arg = args[i];
-    if (arg === '--db' && args[i + 1]) dbUri = args[++i];
-    else if (arg === '--ssl') ssl = true;
-    else if (arg === '--allow-write') allowWrite = true;
-    else if (arg === '--allow-delete') allowDelete = true;
-    else if (arg === '--allow-ddl') allowDDL = true;
-    else if (arg === '--allow-drop-database') allowDropDatabase = true;
-    else if (arg === '--output-format' && args[i + 1]) outputFormat = args[++i].toLowerCase();
+    if (arg === '--db' && args[i + 1]) cliDbUri = args[++i];
+    else if (arg === '--ssl') cliSsl = true;
+    else if (arg === '--allow-write') cliAllowWrite = true;
+    else if (arg === '--allow-delete') cliAllowDelete = true;
+    else if (arg === '--allow-ddl') cliAllowDDL = true;
+    else if (arg === '--allow-drop-database') cliAllowDropDatabase = true;
+    else if (arg === '--output-format' && args[i + 1]) cliOutputFormat = args[++i].toLowerCase();
   }
+
+  // Priority: .sql-mcp > CLI flags > environment variables.
+  // A boolean set in .sql-mcp wins outright (including an explicit `false`);
+  // otherwise a CLI flag turns it on, otherwise the env var decides.
+  const bool = (key: string, cli: boolean): boolean =>
+    key in project ? project[key] === 'true' : cli || env[key] === 'true';
+
+  let dbUri = project['DB_URL'] ?? cliDbUri ?? env['DB_URL'] ?? '';
+  let ssl = bool('SSL', cliSsl);
+  let allowWrite = bool('ALLOW_WRITE', cliAllowWrite);
+  let allowDelete = bool('ALLOW_DELETE', cliAllowDelete);
+  let allowDDL = bool('ALLOW_DDL', cliAllowDDL);
+  let allowDropDatabase = bool('ALLOW_DROP_DATABASE', cliAllowDropDatabase);
+  let outputFormat = (project['OUTPUT_FORMAT'] ?? cliOutputFormat ?? env['OUTPUT_FORMAT'] ?? 'text').toLowerCase();
 
   if (!['text', 'json', 'json-compact'].includes(outputFormat)) {
     process.stderr.write(

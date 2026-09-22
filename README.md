@@ -160,12 +160,12 @@ Create a `.sql-mcp` file in your project root:
 DB_URL=mysql://user:password@localhost:3306/my_project_db
 ```
 
-sql-mcp reads this file on startup. It takes precedence over the `DB_URL` environment variable, so switching projects automatically connects to the right database — as long as you don't also pass a `--db` flag on the command line, which overrides everything.
+sql-mcp reads this file on startup. It takes precedence over both the `--db` CLI flag and the `DB_URL` environment variable, so switching projects automatically connects to the right database — even when a client's global MCP config passes a `--db` flag, the project's `.sql-mcp` file wins.
 
 **Priority order:**
 
 ```
---db CLI flag  >  .sql-mcp file  >  DB_URL env var
+.sql-mcp file  >  --db CLI flag  >  DB_URL env var
 ```
 
 You can also set permission flags in the file:
@@ -196,7 +196,7 @@ The global MCP config (in Claude Desktop, Cursor, etc.) stays as-is. The `.sql-m
 | `--allow-drop-database` | `ALLOW_DROP_DATABASE=true` | `ALLOW_DROP_DATABASE=true` | false | Enable DROP DATABASE |
 | `--output-format <fmt>` | `OUTPUT_FORMAT` | `OUTPUT_FORMAT` | `text` | Output format: `text`, `json`, or `json-compact` |
 
-Priority: CLI flags > `.sql-mcp` file > environment variables.
+Priority: `.sql-mcp` file > CLI flags > environment variables.
 
 ### Output Format
 
