@@ -189,6 +189,30 @@
   .db-note{margin-top:22px;font-family:var(--mono);font-size:.84rem;color:var(--muted)}
   .db-note b{color:var(--coral);font-weight:500}
 
+  /* ---------- connect (credential methods) ---------- */
+  .conn{margin-top:44px;border-top:1px solid var(--line);padding-top:34px}
+  .conn-title{font-size:1.2rem;font-weight:600;letter-spacing:-.02em;margin:0}
+  .conn-intro{color:var(--ink-soft);font-size:1rem;margin:8px 0 0;max-width:56ch}
+  .conn-list{list-style:none;margin:22px 0 0;padding:0}
+  .conn-row{
+    display:grid;grid-template-columns:130px 1fr 128px;gap:22px;align-items:baseline;
+    padding:16px 2px;border-top:1px solid var(--line);
+  }
+  .conn-row:last-child{border-bottom:1px solid var(--line)}
+  .conn-key{
+    justify-self:start;font-family:var(--mono);font-size:.88rem;font-weight:600;color:var(--coral);
+    background:var(--paper-2);border:1px solid var(--line);padding:5px 10px;border-radius:6px;
+  }
+  .conn-desc{color:var(--ink-soft);font-size:.98rem;line-height:1.5}
+  .conn-desc code{font-family:var(--mono);font-size:.85em;color:var(--ink-soft);background:var(--paper-2);border:1px solid var(--line);padding:1px 5px;border-radius:4px}
+  .conn-rank{justify-self:end;font-family:var(--mono);font-size:.76rem;color:var(--muted);white-space:nowrap}
+  .conn-foot{margin:20px 0 0;color:var(--ink-soft);font-size:.96rem;line-height:1.55}
+  .conn-foot code{font-family:var(--mono);font-size:.86em;color:var(--coral)}
+  @media (max-width:640px){
+    .conn-row{grid-template-columns:1fr;gap:8px}
+    .conn-rank{justify-self:start;order:3}
+  }
+
   /* ---------- tools (command index) ---------- */
   .tools{margin-top:44px}
   .tool{
@@ -469,7 +493,28 @@ args = [<span class="s">"@salmanulfaris/sql-mcp"</span>, <span class="s">"--db"<
           <span class="scheme">sqlite: · file: · *.db</span>
         </div>
       </div>
-      <p class="db-note">Config precedence: <b>.sql-mcp file</b> &gt; <b>--db flag</b> &gt; <b>DB_URL env</b> — drop a per-project file and every project connects to the right database automatically.</p>
+      <div class="conn">
+        <h3 class="conn-title">Three ways to hand it a database</h3>
+        <p class="conn-intro">Give sql-mcp a connection URI however suits your setup — a per-project file, a flag, or an environment variable.</p>
+        <ul class="conn-list">
+          <li class="conn-row">
+            <code class="conn-key">.sql-mcp</code>
+            <span class="conn-desc">A file in your project root. Each project connects to its own database automatically, with nothing to change in your client.</span>
+            <span class="conn-rank">highest priority</span>
+          </li>
+          <li class="conn-row">
+            <code class="conn-key">--db</code>
+            <span class="conn-desc">Pass the connection URI on the command line. Handy for a quick run or straight inside your MCP client's config.</span>
+            <span class="conn-rank">then</span>
+          </li>
+          <li class="conn-row">
+            <code class="conn-key">DB_URL</code>
+            <span class="conn-desc">Set it in your shell or your client's <code>env</code> block. Keeps credentials out of config files and shell history.</span>
+            <span class="conn-rank">fallback</span>
+          </li>
+        </ul>
+        <p class="conn-foot">Set more than one and the highest wins — so a project's <code>.sql-mcp</code> always overrides a global <code>--db</code> or <code>DB_URL</code>.</p>
+      </div>
     </div>
   </section>
 
