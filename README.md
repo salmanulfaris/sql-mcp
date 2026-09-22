@@ -2,6 +2,8 @@
 
 > Give AI agents accurate SQL database schema and data access. No more schema guessing.
 
+🌐 **Website & command builder:** [salmanulfaris.github.io/sql-mcp](https://salmanulfaris.github.io/sql-mcp) · 📦 [npm](https://www.npmjs.com/package/@salmanulfaris/sql-mcp)
+
 MCP clients like Claude Desktop, Cursor, and Windsurf don't have terminal access — so without an MCP server, they're limited to what's in your code files. `sql-mcp` gives them live schema and data access directly from your **MySQL, PostgreSQL, SQL Server, or SQLite** database, with **read-only by default** and explicit opt-in for write operations.
 
 ## Supported Databases
